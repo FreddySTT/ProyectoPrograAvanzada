@@ -1,0 +1,118 @@
+---
+interface Props {
+  titulo: string;
+  descripcion: string;
+  tipo: 'materia' | 'personal';
+  materiaOEstado: string;
+  tags: string[];
+  destacado?: boolean;
+  caracteristicas?: string[];
+  linkRepo?: string;
+  linkDemo?: string;
+  fecha?: string;
+  categoriaData?: string;
+  metrica?: string;
+  profesorOCatedra?: string;
+  previewCode?: string;
+  mockupTag?: string;
+}
+
+const { 
+  titulo, 
+  descripcion, 
+  tipo, 
+  materiaOEstado, 
+  tags, 
+  destacado = false, 
+  caracteristicas = [], 
+  linkRepo, 
+  linkDemo,
+  fecha,
+  categoriaData = "todos",
+  metrica,
+  profesorOCatedra,
+  previewCode = "// Compilación verificada [OK]\nstruct Node { int data; Node* next; };",
+  mockupTag = "PREVIEW // INTERACTIVE"
+} = Astro.props;
+---
+
+<div class="project-box" data-category={categoriaData}>
+  <!-- HEADER TARJETA -->
+  <div class="box-top">
+    <div class="badges-row">
+      <span class={`kind-tag ${tipo}`}>
+        {tipo === 'materia' ? '📜 ACADÉMICO' : '⚡ SIDE PROJECT'}
+      </span>
+      <span class="status-pill mono">{materiaOEstado}</span>
+    </div>
+    {fecha && <span class="date-tag mono">{fecha}</span>}
+  </div>
+
+  <!-- TÍTULO & CÁTEDRA -->
+  <div class="title-section">
+    <h3 class="box-title cinzel">{titulo}</h3>
+    {profesorOCatedra && <span class="catedra-name mono">✦ {profesorOCatedra}</span>}
+  </div>
+
+  <!-- MOCKUP VISUAL CON BOTÓN DE ZOOM (Lightbox) -->
+  <div class="project-preview-mockup" data-zoom-trigger title="Hacé clic para ampliar">
+    <div class="mockup-header mono">
+      <div class="mockup-dots">
+        <span class="dot red"></span>
+        <span class="dot yellow"></span>
+        <span class="dot green"></span>
+      </div>
+      <span class="mockup-label">{mockupTag}</span>
+      <span class="zoom-btn-icon">🔍 Zoom</span>
+    </div>
+    <div class="mockup-screen mono">
+      <pre><code>{previewCode}</code></pre>
+    </div>
+  </div>
+
+  <!-- DESCRIPCIÓN -->
+  <p class="box-desc">{descripcion}</p>
+
+  <!-- MÉTRICA CLAVE -->
+  {metrica && (
+    <div class="metric-highlight mono">
+      <span>★ {metrica}</span>
+    </div>
+  )}
+
+  <!-- HITOS / CARACTERÍSTICAS -->
+  {caracteristicas.length > 0 && (
+    <ul class="features-bullets">
+      {caracteristicas.map(item => (
+        <li>
+          <span class="sword-icon">⚔</span>
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  )}
+
+  <!-- TAGS -->
+  <div class="tags-list mono">
+    {tags.map(tag => (
+      <span class="tag-item">{tag}</span>
+    ))}
+  </div>
+
+  <!-- BOTONES -->
+  <div class="box-buttons">
+    {linkDemo && (
+      <a href={linkDemo} target="_blank" rel="noopener" class="card-btn primary">
+        <span>Demo en Vivo</span> ↗
+      </a>
+    )}
+    {linkRepo && (
+      <a href={linkRepo} target="_blank" rel="noopener" class="card-btn secondary">
+        <span>Código GitHub</span> ⌥
+      </a>
+    )}
+    <button class="card-btn zoom-only" data-zoom-trigger title="Ver en pantalla completa">
+      <span>🔍</span>
+    </button>
+  </div>
+</div>

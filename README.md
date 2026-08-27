@@ -1,43 +1,84 @@
-# Astro Starter Kit: Minimal
+# 🚀 Portafolio de Proyectos Web & Académicos
 
-```sh
-npm create astro@latest -- --template minimal
-```
+> Proyecto desarrollado con **Astro**, **TypeScript** y estilos modernos en **Negro y Rojo Carmesí**. Diseñado para albergar tanto **Proyectos de Materias Universitarias** como **Proyectos Personales / Side Projects**.
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+---
 
-## 🚀 Project Structure
+## 👥 Integrantes del Grupo (Equipo de 3)
 
-Inside of your Astro project, you'll see the following folders and files:
+| # | Nombre Completo | Rol / Área Principal | Perfil |
+|---|---|---|---|
+| **1** | **Freddy Sergio Tejerina Trewhella** | Desarrollo Fullstack & Arquitectura | [GitHub](#) / [LinkedIn](#) |
+| **2** | **Camila Lara** | Diseño UI/UX & Frontend | [GitHub](#) / [LinkedIn](#) |
+| **3** | **Sergio Fuentes** | Backend, Bases de Datos & QA | [GitHub](#) / [LinkedIn](#) |
+
+---
+
+## 📁 Estructura del Proyecto
 
 ```text
-/
+mis-portafolios/
 ├── public/
+│   └── style.css            # Hoja de estilos global Negro & Rojo Carmesí
 ├── src/
+│   ├── components/
+│   │   ├── Navbar.astro     # Barra de navegación interactiva
+│   │   ├── Footer.astro     # Pie de página con canales y estado
+│   │   └── CardProyecto.astro # Tarjeta con mockup y zoom lightbox
+│   ├── layouts/
+│   │   └── Layout.astro     # Base HTML, modal de zoom y sistema de audio
 │   └── pages/
-│       └── index.astro
-└── package.json
+│       ├── index.astro      # Portada principal, terminal y sección de integrantes
+│       ├── materias.astro   # Proyectos de materias universitarias
+│       └── personales.astro # Proyectos personales y experimentos
+├── package.json
+└── README.md
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+---
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+## 🛠️ Instalación y Ejecución Local
 
-Any static assets, like images, can be placed in the `public/` directory.
+### 1. Clonar el repositorio
+```bash
+git clone <URL_DEL_REPOSITORIO>
+cd mis-portafolios
+```
 
-## 🧞 Commands
+### 2. Instalar dependencias
+```bash
+npm install
+```
 
-All commands are run from the root of the project, from a terminal:
+### 3. Iniciar el servidor de desarrollo
+```bash
+npm run dev
+```
+El proyecto estará disponible en **`http://localhost:4321`**.
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
+### 4. Compilar para producción
+```bash
+npm run build
+```
 
-## 👀 Want to learn more?
+---
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+## 📜 Flujo de Trabajo en Git (Para el Equipo)
+
+1. **Crear una rama para trabajar en una funcionalidad:**
+   ```bash
+   git checkout -b feature/nueva-seccion
+   ```
+2. **Hacer commit de los cambios:**
+   ```bash
+   git add .
+   git commit -m "feat: agregar nueva funcionalidad"
+   ```
+3. **Subir la rama a GitHub:**
+   ```bash
+   git push origin feature/nueva-seccion
+   ```
+
+---
+
+© 2026 - Desarrollado por **Freddy Sergio Tejerina Trewhella**, **Camila Lara** y **Sergio Fuentes**.

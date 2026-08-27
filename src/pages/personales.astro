@@ -1,0 +1,156 @@
+---
+import Layout from '../layouts/Layout.astro';
+import CardProyecto from '../components/CardProyecto.astro';
+
+const proyectosPersonales = [
+  {
+    titulo: "Plataforma de Clima & Radar Meteorológico",
+    materiaOEstado: "🔥 En Vivo / Producción",
+    profesorOCatedra: "Desarrollo Web Fullstack Moderno",
+    fecha: "2026",
+    descripcion: "Aplicación web que consume la API de OpenWeather para entregar pronósticos extendidos, mapas térmicos y alertas climáticas con geolocalización.",
+    metrica: "Score 99/100 Lighthouse // Despliegue en Cloud",
+    mockupTag: "ASTRO // WEATHER API",
+    previewCode: "// Weather fetching service\nexport async function getCityWeather(city) {\n  const res = await fetch('https://api.openweathermap.org/data/2.5/weather?q=' + city + '&units=metric');\n  return await res.json();\n}",
+    tags: ["Astro", "TypeScript", "Tailwind CSS", "REST API", "Vercel"],
+    categoriaData: "web",
+    caracteristicas: [
+      "Renderizado estático con islas interactivas de cliente",
+      "Detección automática de ubicación y modo adaptativo",
+      "Carga rápida optimizada en menos de 300ms"
+    ],
+    linkDemo: "https://mi-clima-demo.vercel.app",
+    linkRepo: "https://github.com/tu-usuario/app-clima"
+  },
+  {
+    titulo: "Bot de Automatización & Estudio para Discord",
+    materiaOEstado: "⚡ Activo en Servidor VPS",
+    profesorOCatedra: "Automatización Cloud & Bots",
+    fecha: "2025",
+    descripcion: "Bot interactivo para servidores de comunidades académicas: alertas programadas de exámenes, temporizador Pomodoro grupal y consultas rápidas.",
+    metrica: "Disponibilidad 24/7 en VPS con auto-reinicio",
+    mockupTag: "NODE.JS // DISCORD.JS",
+    previewCode: "// Discord Bot Event Handler\nclient.on('messageCreate', async (message) => {\n  if (message.content === '!pomodoro') {\n    startStudySession(message.channel, 25);\n  }\n});",
+    tags: ["Node.js", "Discord.js", "MongoDB", "Async/Await"],
+    categoriaData: "bots",
+    caracteristicas: [
+      "Persistencia de cronogramas en base NoSQL",
+      "Sistema de roles automatizado por metas cumplidas",
+      "Despliegue continuo en VPS supervisado"
+    ],
+    linkRepo: "https://github.com/tu-usuario/discord-study-bot"
+  },
+  {
+    titulo: "Generador de CV en Markdown a PDF Profesional",
+    materiaOEstado: "✨ Open Source",
+    profesorOCatedra: "Herramientas de Productividad CLI",
+    fecha: "2025",
+    descripcion: "Herramienta de consola en Python para compilar plantillas estructuradas en Markdown a currículums en PDF optimizados para filtros de reclutamiento ATS.",
+    metrica: "Generación en < 200ms sin dependencias pesadas",
+    mockupTag: "PYTHON // ATS COMPILER",
+    previewCode: "# Markdown to PDF compiler\ndef build_resume(md_file, output_pdf):\n  html_content = markdown.markdown(read_file(md_file))\n  weasyprint.HTML(string=html_content).write_pdf(output_pdf)",
+    tags: ["Python", "CLI", "Markdown", "Jinja2", "ATS-Friendly"],
+    categoriaData: "herramientas",
+    caracteristicas: [
+      "Formato limpio estructurado para filtros ATS",
+      "Compilación instantánea en PDF elegante"
+    ],
+    linkDemo: "https://github.com/tu-usuario/markdown-cv-generator",
+    linkRepo: "https://github.com/tu-usuario/markdown-cv-generator"
+  },
+  {
+    titulo: "E-Commerce / Catálogo con Carrito Persistente",
+    materiaOEstado: "🛠️ En Desarrollo Activo",
+    profesorOCatedra: "Arquitectura Frontend React",
+    fecha: "2026",
+    descripcion: "Tienda online frontend con catálogo dinámico, filtros por categoría en tiempo real, carrito persistente en LocalStorage y simulación de compra.",
+    metrica: "Actualización de estado instantánea",
+    mockupTag: "REACT // SHOPPING CART",
+    previewCode: "// Cart state with persistence\nexport function useCart() {\n  const [items, setItems] = useLocalStorage('cart_items', []);\n  const add = (product) => setItems([...items, product]);\n  return { items, add };\n}",
+    tags: ["React", "Astro", "State Management", "CSS Grid"],
+    categoriaData: "web",
+    caracteristicas: [
+      "Sincronización instantánea de stock y totales",
+      "Diseño 100% responsivo para móviles y escritorio"
+    ],
+    linkDemo: "https://mi-tienda-demo.vercel.app",
+    linkRepo: "https://github.com/tu-usuario/ecommerce-astro"
+  }
+];
+---
+
+<Layout title="Proyectos Personales">
+  <div class="section-head" style="margin-bottom: 2.5rem;">
+    <a href="/" class="mono" style="color: var(--red-bright); display: inline-block; margin-bottom: 1rem;">← VOLVER AL INICIO</a>
+    <span class="section-tag mono">LABORATORIO // SIDE PROJECTS & PRODUCCIÓN</span>
+    <h1 class="cinzel" style="font-size: clamp(2rem, 4.5vw, 3.2rem); color: var(--text-white); margin-bottom: 0.8rem;">Proyectos Personales & Lab</h1>
+    <p style="color: var(--text-muted); font-size: 1.05rem; max-width: 800px;">
+      Espacio experimental y de producción personal. Aplicaciones web en la nube, herramientas open source y bots.
+    </p>
+  </div>
+
+  <!-- FILTROS TABS -->
+  <div class="tabs-filter-bar">
+    <button class="filter-tab-btn active" data-filter="todos">
+      <span>⚡ Todos</span>
+      <span class="mini-badge mono">[4]</span>
+    </button>
+    <button class="filter-tab-btn" data-filter="web">
+      <span>🔥 Web & Fullstack</span>
+      <span class="mini-badge mono">[2]</span>
+    </button>
+    <button class="filter-tab-btn" data-filter="bots">
+      <span>🤖 Bots & Discord</span>
+      <span class="mini-badge mono">[1]</span>
+    </button>
+    <button class="filter-tab-btn" data-filter="herramientas">
+      <span>🛠️ Herramientas CLI</span>
+      <span class="mini-badge mono">[1]</span>
+    </button>
+  </div>
+
+  <!-- GRILLA DE TARJETAS -->
+  <div class="cards-layout-grid">
+    {proyectosPersonales.map(p => (
+      <CardProyecto
+        tipo="personal"
+        titulo={p.titulo}
+        materiaOEstado={p.materiaOEstado}
+        profesorOCatedra={p.profesorOCatedra}
+        fecha={p.fecha}
+        descripcion={p.descripcion}
+        metrica={p.metrica}
+        mockupTag={p.mockupTag}
+        previewCode={p.previewCode}
+        tags={p.tags}
+        caracteristicas={p.caracteristicas}
+        linkDemo={p.linkDemo}
+        linkRepo={p.linkRepo}
+        categoriaData={p.categoriaData}
+      />
+    ))}
+  </div>
+</Layout>
+
+<script>
+  const btns = document.querySelectorAll('.filter-tab-btn');
+  const boxes = document.querySelectorAll('.project-box');
+
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      btns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const filter = btn.getAttribute('data-filter');
+
+      boxes.forEach(box => {
+        const cat = box.getAttribute('data-category');
+        if (filter === 'todos' || cat === filter) {
+          box.style.display = 'flex';
+        } else {
+          box.style.display = 'none';
+        }
+      });
+    });
+  });
+</script>

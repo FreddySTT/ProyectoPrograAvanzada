@@ -1,0 +1,43 @@
+---
+const pathname = new URL(Astro.request.url).pathname;
+const currentPath = pathname.replace(/\/$/, "");
+---
+
+<header class="navbar-header">
+  <div class="navbar-inner">
+    <!-- LOGO / BRAND -->
+    <a href="/" class="brand-link">
+      <div class="brand-icon">
+        <span>⚔</span>
+      </div>
+      <div class="brand-info">
+        <span class="brand-title cinzel">FREDDY SERGIO TEJERINA</span>
+        <span class="brand-sub mono">
+          <span class="live-dot"></span> DEV STUDIO // VOL. 2026
+        </span>
+      </div>
+    </a>
+
+    <!-- LINKS DE NAVEGACIÓN -->
+    <nav class="nav-menu">
+      <a href="/" class={currentPath === "" ? "nav-link active" : "nav-link"}>
+        <span>🔥 Inicio</span>
+      </a>
+      <a href="/materias" class={currentPath === "/materias" ? "nav-link active" : "nav-link"}>
+        <span>📜 Materias</span>
+        <span class="mini-badge mono">UNI</span>
+      </a>
+      <a href="/personales" class={currentPath === "/personales" ? "nav-link active" : "nav-link"}>
+        <span>⚔️ Personales</span>
+        <span class="mini-badge mono">LAB</span>
+      </a>
+    </nav>
+
+    <!-- CONTACTO -->
+    <div class="nav-action-wrap">
+      <a href="#contacto" class="nav-btn-contact mono">
+        <span>Contactar</span> ✉️
+      </a>
+    </div>
+  </div>
+</header>

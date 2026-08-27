@@ -1,17 +1,350 @@
 ---
+import Layout from '../layouts/Layout.astro';
+import CardProyecto from '../components/CardProyecto.astro';
 
+const stats = [
+  { valor: "03", label: "Integrantes", sub: "Equipo de Desarrollo" },
+  { valor: "02", label: "Portafolios", sub: "Materias & Lab" },
+  { valor: "+16", label: "Proyectos", sub: "C++, SQL, Python, TS" },
+  { valor: "10/10", label: "Algoritmos", sub: "Estructuras de Datos" }
+];
+
+const teamMembers = [
+  {
+    nombre: "Freddy Sergio Tejerina Trewhella",
+    rol: "LÍDER DE PROYECTO & FULLSTACK",
+    bio: "Especialista en lógica algorítmica, desarrollo web con Astro/React y arquitecturas de backend.",
+    iniciales: "FST",
+    skills: ["C++", "Astro", "TypeScript", "SQL"]
+  },
+  {
+    nombre: "Camila Lara",
+    rol: "DESARROLLADORA & UI/UX DESIGN",
+    bio: "Diseño de interfaces modernas, maquetación responsiva, experiencia de usuario y frontend interactivo.",
+    iniciales: "CL",
+    skills: ["React", "UI/UX", "CSS Grid", "Figma"]
+  },
+  {
+    nombre: "Sergio Fuentes",
+    rol: "DESARROLLADOR & BASES DE DATOS",
+    bio: "Modelado de datos relacionales, optimización de consultas, testing y control de calidad de software.",
+    iniciales: "SF",
+    skills: ["PostgreSQL", "Python", "Linux", "QA"]
+  }
+];
+
+const cplusplusSnippet = `// Algoritmo de Dijkstra en C++
+vector<int> dist(V, INF);
+priority_queue<pair<int,int>, vector<pair<int,int>>, greater<pair<int,int>>> pq;
+pq.push({0, src}); dist[src] = 0;
+while (!pq.empty()) {
+  int u = pq.top().second; pq.pop();
+  for (auto& edge : adj[u]) {
+    if (dist[edge.to] > dist[u] + edge.weight) {
+      dist[edge.to] = dist[u] + edge.weight;
+      pq.push({dist[edge.to], edge.to});
+    }
+  }
+}`;
+
+const weatherSnippet = `// Endpoint de Clima en Tiempo Real con Astro
+export async function GET({ request }) {
+  const url = new URL(request.url);
+  const city = url.searchParams.get('city') || 'Cochabamba';
+  const res = await fetch('https://api.openweathermap.org/data/2.5/forecast?q=' + city + '&units=metric&appid=API_KEY');
+  const data = await res.json();
+  return new Response(JSON.stringify(data), { status: 200 });
+}`;
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<Layout title="Inicio">
+  <!-- HERO CON TYPEWRITER -->
+  <section class="hero-box">
+    <div class="hero-status-pill mono">
+      <span class="status-dot-red"></span>
+      <span>SYSTEM STATUS // GRUPO DE 3 // ONLINE</span>
+      <span class="mini-badge mono">TEAM</span>
+    </div>
+
+    <h1 class="hero-title-big cinzel">
+      FREDDY SERGIO<br/>
+      <span class="red-gradient-text">TEJERINA</span>
+    </h1>
+
+    <!-- TEXTO QUE SE DESPLIEGA EN TIEMPO REAL -->
+    <div class="typewriter-box mono">
+      <span class="type-prompt">&gt;</span>
+      <span id="typewriterTarget">Desarrollador de Software & Estudiante de Informática</span>
+      <span class="type-cursor">|</span>
+    </div>
+
+    <p class="hero-intro-text">
+      Repositorio y portafolio colaborativo del equipo. Integrado por <strong>Freddy Sergio Tejerina Trewhella</strong>, <strong>Camila Lara</strong> y <strong>Sergio Fuentes</strong> para proyectos universitarios y de desarrollo moderno.
+    </p>
+
+    <!-- BOTONES HERO -->
+    <div class="hero-actions-row">
+      <a href="/materias" class="btn-hero primary">
+        <span>📜 Proyectos de Materias</span>
+        <span>➔</span>
+      </a>
+      <a href="/personales" class="btn-hero secondary">
+        <span>⚔️ Proyectos Personales</span>
+        <span>➔</span>
+      </a>
+      <a href="#equipo" class="btn-hero outline mono">
+        <span>👥 Ver Integrantes</span>
+      </a>
+    </div>
+
+    <!-- STATS COUNTER -->
+    <div class="stats-container">
+      {stats.map(s => (
+        <div class="stat-item">
+          <span class="stat-number cinzel">{s.valor}</span>
+          <strong class="stat-label">{s.label}</strong>
+          <span class="stat-meta mono">{s.sub}</span>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- SECCIÓN DE INTEGRANTES DEL GRUPO (EQUIPO DE 3) -->
+  <section class="team-section" id="equipo">
+    <div class="section-head">
+      <span class="section-tag mono">// INTEGRANTES DEL GRUPO</span>
+      <h2 class="cinzel">Equipo de Desarrollo</h2>
+      <p>Miembros oficiales del grupo para el repositorio y proyectos de cátedra.</p>
+    </div>
+
+    <div class="team-grid">
+      {teamMembers.map(m => (
+        <div class="member-card">
+          <div class="member-avatar-box cinzel">
+            <span>{m.iniciales}</span>
+          </div>
+          <h3 class="member-name cinzel">{m.nombre}</h3>
+          <span class="member-role mono">{m.rol}</span>
+          <p class="member-bio">{m.bio}</p>
+          <div class="member-skills-row mono">
+            {m.skills.map(sk => (
+              <span class="member-skill-pill">{sk}</span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- TERMINAL INTERACTIVA -->
+  <section class="terminal-block">
+    <div class="terminal-card">
+      <div class="terminal-header mono">
+        <div class="term-dots">
+          <span class="term-dot red"></span>
+          <span class="term-dot yellow"></span>
+          <span class="term-dot green"></span>
+        </div>
+        <span class="term-title">fst-console // bash v5.2</span>
+        <span class="term-hint mono">Escribí 'team' o 'help' y presioná Enter</span>
+      </div>
+      <div class="terminal-logs mono" id="terminalOutput">
+        <p class="term-row green">[FREDDY_OS v2.6 Ready] ✦ Comandos: <span class="cmd-badge">team</span>, <span class="cmd-badge">materias</span>, <span class="cmd-badge">skills</span>, <span class="cmd-badge">clear</span></p>
+      </div>
+      <div class="terminal-input-bar mono">
+        <span class="term-prompt">guest@freddy-os:~$</span>
+        <input type="text" id="terminalInput" class="term-input-field" placeholder="team" autocomplete="off" />
+      </div>
+    </div>
+  </section>
+
+  <!-- LOS DOS PORTALES -->
+  <section class="portals-section">
+    <div class="section-head">
+      <span class="section-tag mono">// SELECCIÓN DE REINO</span>
+      <h2 class="cinzel">Dos Portafolios Especializados</h2>
+      <p>Elegí la categoría de proyectos que deseás revisar.</p>
+    </div>
+
+    <div class="portals-grid">
+      <!-- MATERIAS -->
+      <a href="/materias" class="portal-box">
+        <div class="portal-top">
+          <span class="portal-tag-meta mono">SECCIÓN // 01</span>
+          <span class="portal-icon">📜</span>
+        </div>
+        <h3 class="cinzel">Proyectos de Materias</h3>
+        <p>
+          Trabajos prácticos universitarios: estructuras de datos en C++, modelado hospitalario en SQL, planificadores de CPU para Sistemas Operativos y sockets TCP.
+        </p>
+        <div class="portal-bottom">
+          <div class="portal-tags-row mono">
+            <span>C++</span>
+            <span>PostgreSQL</span>
+            <span>Algoritmos</span>
+          </div>
+          <span class="portal-cta">Entrar al Archivo ➔</span>
+        </div>
+      </a>
+
+      <!-- PERSONALES -->
+      <a href="/personales" class="portal-box">
+        <div class="portal-top">
+          <span class="portal-tag-meta mono">SECCIÓN // 02</span>
+          <span class="portal-icon">⚔️</span>
+        </div>
+        <h3 class="cinzel">Proyectos Personales</h3>
+        <p>
+          Aplicaciones web en producción con Astro y React, herramientas CLI en Python, bots de Discord con automatización y plataformas con APIs públicas.
+        </p>
+        <div class="portal-bottom">
+          <div class="portal-tags-row mono">
+            <span>Astro</span>
+            <span>TypeScript</span>
+            <span>Fullstack</span>
+          </div>
+          <span class="portal-cta">Explorar el Lab ➔</span>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- MUESTRA CON ZOOM A CÓDIGO -->
+  <section class="showcase-section">
+    <div class="section-head">
+      <span class="section-tag mono">// PROYECTOS DESTACADOS</span>
+      <h2 class="cinzel">Muestra con Zoom Interactivo</h2>
+      <p>Hacé clic en el botón 🔍 o en la pantalla de código para ampliar.</p>
+    </div>
+
+    <div class="cards-layout-grid">
+      <CardProyecto
+        tipo="materia"
+        titulo="Sistema de Optimización de Rutas con Grafos"
+        materiaOEstado="Algoritmos II (Nota: 10/10)"
+        profesorOCatedra="Cátedra de Estructuras de Datos Avanzadas"
+        fecha="2025"
+        descripcion="Implementación del algoritmo de Dijkstra y Árbol de Expansión Mínima en C++ para optimizar rutas de transporte en consola."
+        metrica="Complejidad algorítmica O(E log V)"
+        mockupTag="C++ // GRAPH ALGORITHM"
+        previewCode={cplusplusSnippet}
+        tags={["C++", "Grafos", "Dijkstra", "Punteros", "CLI"]}
+        caracteristicas={[
+          "Manejo dinámico de memoria sin memory leaks",
+          "Serialización de grafos en archivos binarios (.dat)"
+        ]}
+        linkRepo="https://github.com/tu-usuario/grafos-cplusplus"
+      />
+
+      <CardProyecto
+        tipo="personal"
+        titulo="Plataforma de Clima & Radar Meteorológico"
+        materiaOEstado="🚀 En Vivo / Producción"
+        profesorOCatedra="Desarrollo Web Fullstack"
+        fecha="2026"
+        descripcion="Aplicación web interactiva que consume la API de OpenWeather para pronósticos semanales, alertas térmicas y mapas satelitales."
+        metrica="99/100 Google Lighthouse Score"
+        mockupTag="ASTRO // WEATHER API"
+        previewCode={weatherSnippet}
+        tags={["Astro", "TypeScript", "Tailwind", "REST API", "Vercel"]}
+        caracteristicas={[
+          "Renderizado estático con islas interactivas",
+          "Detección automática de coordenadas y modo oscuro"
+        ]}
+        linkDemo="https://mi-clima-demo.vercel.app"
+        linkRepo="https://github.com/tu-usuario/app-clima"
+      />
+    </div>
+  </section>
+</Layout>
+
+<!-- SCRIPT: TYPEWRITER & TERMINAL -->
+<script>
+  // 1. TYPEWRITER EFFECT
+  const phrases = [
+    "Equipo de Desarrollo // Grupo de 3 Integrantes",
+    "Freddy Tejerina ✦ Camila Lara ✦ Sergio Fuentes",
+    "Estudiantes de Informática // C++ & Algoritmos Master",
+    "Construyendo productos con Astro, React y TypeScript",
+    "Bases de Datos Relacionales & Backend Escalable"
+  ];
+  let phraseIdx = 0;
+  let charIdx = 0;
+  let isDeleting = false;
+  const target = document.getElementById('typewriterTarget');
+
+  function typeStep() {
+    if (!target) return;
+    const currentPhrase = phrases[phraseIdx];
+    
+    if (isDeleting) {
+      target.textContent = currentPhrase.substring(0, charIdx - 1);
+      charIdx--;
+    } else {
+      target.textContent = currentPhrase.substring(0, charIdx + 1);
+      charIdx++;
+    }
+
+    let speed = isDeleting ? 30 : 60;
+
+    if (!isDeleting && charIdx === currentPhrase.length) {
+      speed = 2200;
+      isDeleting = true;
+    } else if (isDeleting && charIdx === 0) {
+      isDeleting = false;
+      phraseIdx = (phraseIdx + 1) % phrases.length;
+      speed = 400;
+    }
+
+    setTimeout(typeStep, speed);
+  }
+  typeStep();
+
+  // 2. TERMINAL SIMULATOR
+  const termInput = document.getElementById('terminalInput');
+  const termOutput = document.getElementById('terminalOutput');
+
+  if (termInput && termOutput) {
+    termInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const cmd = termInput.value.trim().toLowerCase();
+        termInput.value = '';
+        
+        const line = document.createElement('p');
+        line.className = 'term-row';
+        line.innerHTML = '<span class="term-prompt">guest@freddy-os:~$</span> ' + cmd;
+        termOutput.appendChild(line);
+
+        const resp = document.createElement('p');
+        resp.className = 'term-row cyan';
+
+        switch (cmd) {
+          case 'help':
+            resp.innerHTML = 'Comandos: <span class="cmd-badge">team</span>, <span class="cmd-badge">materias</span>, <span class="cmd-badge">skills</span>, <span class="cmd-badge">hire</span>, <span class="cmd-badge">clear</span>';
+            break;
+          case 'team':
+            resp.innerHTML = '👥 Integrantes: 1. Freddy Sergio Tejerina Trewhella | 2. Camila Lara | 3. Sergio Fuentes';
+            break;
+          case 'materias':
+            resp.innerHTML = '📚 Redirigiendo a /materias...';
+            setTimeout(() => window.location.href = '/materias', 600);
+            break;
+          case 'skills':
+            resp.innerHTML = '⚔️ C++, Python, PostgreSQL, TypeScript, Astro, React, Docker, Linux.';
+            break;
+          case 'hire':
+            resp.innerHTML = '🔥 Contacto: <a href="mailto:freddy.tejerina@example.com" style="color:#ef4444;">freddy.tejerina@example.com</a>';
+            break;
+          case 'clear':
+            termOutput.innerHTML = '';
+            return;
+          default:
+            resp.innerHTML = "Comando no reconocido: '" + cmd + "'. Escribí <span class='cmd-badge'>help</span>.";
+        }
+
+        termOutput.appendChild(resp);
+        termOutput.scrollTop = termOutput.scrollHeight;
+      }
+    });
+  }
+</script>
