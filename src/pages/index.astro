@@ -84,11 +84,11 @@ export async function GET({ request }) {
 
     <!-- BOTONES HERO -->
     <div class="hero-actions-row">
-      <a href="/materias" class="btn-hero primary">
+      <a href={`${import.meta.env.BASE_URL}/materias`} class="btn-hero primary">
         <span>📜 Proyectos de Materias</span>
         <span>➔</span>
       </a>
-      <a href="/personales" class="btn-hero secondary">
+      <a href={`${import.meta.env.BASE_URL}/personales`} class="btn-hero secondary">
         <span>⚔️ Proyectos Personales</span>
         <span>➔</span>
       </a>
@@ -327,7 +327,7 @@ export async function GET({ request }) {
             break;
           case 'materias':
             resp.innerHTML = '📚 Redirigiendo a /materias...';
-            setTimeout(() => window.location.href = '/materias', 600);
+            setTimeout(() => window.location.href = import.meta.env.BASE_URL + '/materias', 600);
             break;
           case 'skills':
             resp.innerHTML = '⚔️ C++, Python, PostgreSQL, TypeScript, Astro, React, Docker, Linux.';
