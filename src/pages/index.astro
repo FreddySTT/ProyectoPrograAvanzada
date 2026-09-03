@@ -2,70 +2,72 @@
 import Layout from '../layouts/Layout.astro';
 
 const stats = [
-  { valor: "24/7", label: "Optimización", sub: "Algoritmos en tiempo real" },
-  { valor: "+18", label: "Rutas Turísticas", sub: "Circuitos urbanos y naturales" },
-  { valor: "O(E log V)", label: "Eficiencia", sub: "Algoritmo de Dijkstra" },
+  { valor: "⭐ 4.9/5", label: "Satisfacción", sub: "+1,200 viajeros conectados" },
+  { valor: "24/7", label: "Monitoreo", sub: "Algoritmo de Dijkstra en vivo" },
+  { valor: "+24", label: "Destinos Top", sub: "Circuitos urbanos y culturales" },
   { valor: "100%", label: "Precisión", sub: "Integración meteorológica" }
 ];
 
-const rutasDestacadas = [
+const rutasRecomendadas = [
   {
-    titulo: "Ruta Histórica & Arquitectónica",
-    tipo: "TURISMO PATRIMONIAL",
+    titulo: "Circuito Histórico & Colonial",
+    tipo: "🏛️ PATRIMONIO & CULTURA",
+    rating: "⭐ 4.9 (340 opiniones)",
     tiempo: "45 min // 4.2 km",
-    descripcion: "Circuito por los principales monumentos, museos y centros culturales con paradas optimizadas según flujo peatonal.",
-    metrica: "Ruta más corta calculada con Dijkstra",
-    tags: ["Centro Histórico", "Cultura", "Peatonal", "Grafos"]
+    descripcion: "Recorrido por los museos emblemáticos, iglesias coloniales y plazas centrales. Ideal para caminar y tomar fotos.",
+    metrica: "Trayecto óptimo calculado con Dijkstra",
+    tags: ["Centro Histórico", "Cultura", "Peatonal", "Fotos"]
   },
   {
-    titulo: "Circuito Ecoturístico & Paisajístico",
-    tipo: "NATURALEZA & AVENTURA",
-    tiempo: "1h 20 min // 12.8 km",
-    descripcion: "Trayecto de conexión entre miradores urbanos y senderos naturales con integración de datos del clima en vivo.",
-    metrica: "Filtrado automático por condición meteorológica",
-    tags: ["Miradores", "Sendero", "Clima Real-Time", "OpenWeather"]
+    titulo: "Ruta Ecoturística & Miradores",
+    tipo: "🌲 NATURALEZA & AVENTURA",
+    rating: "⭐ 4.8 (210 opiniones)",
+    tiempo: "1h 15 min // 11.5 km",
+    descripcion: "Conecta los senderos naturales más vistosos con los mejores puntos panorámicos de la ciudad.",
+    metrica: "Filtro automático según condición del clima",
+    tags: ["Miradores", "Sendero", "Clima Real-Time", "Aire Puro"]
   },
   {
-    titulo: "Ruta de Conexión Express Urbana",
-    tipo: "TRANSPORTE INTELIGENTE",
-    tiempo: "25 min // 8.5 km",
-    descripcion: "Navegación ágil entre terminales principales y nodos turísticos con mínima interferencia de tráfico congestionado.",
-    metrica: "Grafo dinámico de pesos variables",
-    tags: ["Transporte", "Nodos", "Movilidad Rápidas"]
+    titulo: "Circuito Gastronómico Tradicional",
+    tipo: "🍕 GASTRONOMÍA & SABORES",
+    rating: "⭐ 5.0 (480 opiniones)",
+    tiempo: "50 min // 5.1 km",
+    descripcion: "Visita los mejores puntos culinarios, mercados tradicionales y cafeterías típicas de la ciudad.",
+    metrica: "Ruta optimizada con menor tiempo de espera",
+    tags: ["Comida Típica", "Mercados", "Degustación"]
   }
 ];
 ---
 
-<Layout title="Inicio">
-  <!-- HERO PRINCIPAL -->
+<Layout title="Buscador de Rutas & Turismo">
+  <!-- HERO ESTILO BOOKING -->
   <section class="hero-box">
     <div class="hero-status-pill mono">
-      <span class="status-dot-red"></span>
-      <span>PLATAFORMA DE RUTAS TURÍSTICAS & NAVEGACIÓN INTELIGENTE</span>
+      <span class="status-dot-blue"></span>
+      <span>PLATAFORMA AMIGABLE DE NAVEGACIÓN & TURISMO INTELIGENTE</span>
     </div>
 
     <h1 class="hero-title-big cinzel">
-      RIQSI<br/>
-      <span class="red-gradient-text">RUTAS</span>
+      Encuentra la Ruta Perfecta<br/>
+      <span class="yellow-gradient-text">para tu Próximo Viaje</span>
     </h1>
 
     <div class="typewriter-box mono">
       <span class="type-prompt">&gt;</span>
-      <span id="typewriterTarget">Explora y optimiza tu camino inteligente</span>
+      <span id="typewriterTarget">Planifica tu recorrido de forma fácil y rápida</span>
       <span class="type-cursor">|</span>
     </div>
 
     <p class="hero-intro-text">
-      <strong>Riqsi Rutas</strong> es la plataforma interactiva diseñada para la planificación, cálculo y optimización de trayectos turísticos y movilidad urbana. Mediante algoritmos de grafos avanzados, calculamos la ruta óptima para que aproveches al máximo tu experiencia.
+      En <strong>Riqsi Rutas</strong> te ayudamos a descubrir los mejores caminos. Ya sea que busques un recorrido turístico relajante o la ruta más rápida de transporte, nuestro motor de inteligencia artificial calcula el trayecto ideal para ti.
     </p>
 
     <div class="hero-actions-row">
-      <a href={`${import.meta.env.BASE_URL}/rutas`} class="btn-hero primary">
-        <span>🗺️ Explorar Rutas</span>
-        <span>➔</span>
+      <a href="#buscador" class="btn-hero primary">
+        <span>🔍 Buscar una Ruta Ahora</span>
       </a>
-      <a href="#buscador" class="btn-hero secondary">
-        <span>🔍 Simular Trayecto</span>
+      <a href={`${import.meta.env.BASE_URL}/rutas`} class="btn-hero secondary">
+        <span>🗺️ Ver Todos los Destinos</span>
       </a>
     </div>
 
@@ -80,67 +82,73 @@ const rutasDestacadas = [
     </div>
   </section>
 
-  <!-- WIDGET SIMULADOR DE BÚSQUEDA DE RUTAS -->
-  <section class="route-search-widget" id="buscador">
-    <h3 class="cinzel widget-title">
-      <span>🧭</span>
-      <span>Planificador Inteligente de Trayectos</span>
-    </h3>
-    <div class="widget-grid">
-      <div class="input-group">
-        <label class="mono">PUNTO DE ORIGEN (NODO A)</label>
-        <select id="originSelect" class="route-select">
-          <option value="1">Plaza Principal (Nodo 1)</option>
-          <option value="2">Terminal de Buses (Nodo 2)</option>
-          <option value="3">Mirador del Valle (Nodo 3)</option>
-        </select>
+  <!-- WIDGET BUSCADOR ESTILO BOOKING.COM -->
+  <section class="booking-search-card" id="buscador">
+    <div class="search-card-inner">
+      <h3 class="widget-title cinzel">
+        <span>🔎</span>
+        <span>¿A dónde quieres ir hoy?</span>
+      </h3>
+
+      <div class="widget-grid">
+        <div class="input-group">
+          <label class="mono">📍 PUNTO DE ORIGEN</label>
+          <select id="originSelect" class="route-select">
+            <option value="1">🏛️ Plaza Principal (Nodo 1)</option>
+            <option value="2">🚌 Terminal de Autobuses (Nodo 2)</option>
+            <option value="3">⛰️ Mirador del Valle (Nodo 3)</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label class="mono">🏁 DESTINO FINAL</label>
+          <select id="destSelect" class="route-select">
+            <option value="3">⛰️ Mirador del Valle (Nodo 3)</option>
+            <option value="4">🍲 Centro Gastronómico (Nodo 4)</option>
+            <option value="5">🌲 Parque Nacional (Nodo 5)</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label class="mono">🎒 TIPO DE VIAJE</label>
+          <select class="route-select">
+            <option>⚡ Ruta Más Rápida (Dijkstra)</option>
+            <option>📸 Ruta Turística & Fotos</option>
+            <option>🍃 Ruta Ecoturística</option>
+          </select>
+        </div>
+
+        <button class="btn-find-route mono" onclick="simularRuta();">
+          BUSCAR RUTA ➔
+        </button>
       </div>
 
-      <div class="input-group">
-        <label class="mono">DESTINO DESEADO (NODO B)</label>
-        <select id="destSelect" class="route-select">
-          <option value="3">Mirador del Valle (Nodo 3)</option>
-          <option value="4">Centro Gastronómico (Nodo 4)</option>
-          <option value="5">Parque Nacional (Nodo 5)</option>
-        </select>
+      <div id="resultBox" style="display:none; margin-top:1.5rem; background:#0a1128; border:2px solid var(--booking-yellow); padding:1.4rem; border-radius:10px; font-family:'Outfit', sans-serif; font-size:0.95rem; color:#ffffff;">
       </div>
-
-      <div class="input-group">
-        <label class="mono">PREFERENCIA</label>
-        <select class="route-select">
-          <option>Ruta Más Rápida (Dijkstra)</option>
-          <option>Ruta Escénica / Turística</option>
-          <option>Ruta Ecoturística</option>
-        </select>
-      </div>
-
-      <button class="btn-find-route mono" onclick="simularRuta();">
-        Calcular Ruta ➔
-      </button>
-    </div>
-
-    <div id="resultBox" style="display:none; margin-top:1.5rem; background:#080506; border:1px solid var(--border-red); padding:1.2rem; border-radius:8px; font-family:'JetBrains Mono', monospace; font-size:0.88rem; color:#4ade80;">
     </div>
   </section>
 
-  <!-- MOSTRAR RUTAS DESTACADAS -->
+  <!-- SECCIÓN CIRCUITOS POPULARES ESTILO TRIPADVISOR / BOOKING -->
   <section>
     <div style="margin-bottom: 2rem;">
-      <span class="mono" style="color: var(--red-bright); font-size: 0.75rem; letter-spacing: 1.5px;">// CIRCUITOS POPULARES</span>
-      <h2 class="cinzel" style="font-size: 2rem; color: var(--text-white);">Rutas Recomendadas</h2>
+      <span class="mono" style="color: var(--booking-yellow); font-size: 0.8rem; font-weight: 800; letter-spacing: 1px;">// EXPERIENCIAS RECOMENDADAS</span>
+      <h2 class="cinzel" style="font-size: 2.2rem; color: var(--text-white);">Destinos y Circuitos Más Populares</h2>
     </div>
 
     <div class="cards-layout-grid">
-      {rutasDestacadas.map(r => (
-        <div class="route-card">
+      {rutasRecomendadas.map(r => (
+        <div class="travel-card">
           <div>
-            <div class="card-top">
-              <span class="category-badge">{r.tipo}</span>
-              <span class="time-pill mono">{r.tiempo}</span>
+            <div class="card-badge-row">
+              <span class="rating-badge gold">{r.tipo}</span>
+              <span class="time-pill mono">⏱ {r.tiempo}</span>
             </div>
+
             <h3 class="card-title cinzel">{r.titulo}</h3>
+            <span style="font-size: 0.8rem; color: var(--booking-yellow); font-weight: 700; display: block; margin-bottom: 0.8rem;">{r.rating}</span>
+
             <p class="card-desc">{r.descripcion}</p>
-            <div class="metric-box mono">★ {r.metrica}</div>
+            <div class="price-metric-box mono">★ {r.metrica}</div>
           </div>
 
           <div>
@@ -150,7 +158,7 @@ const rutasDestacadas = [
               ))}
             </div>
             <a href={`${import.meta.env.BASE_URL}/rutas`} class="btn-detail mono">
-              <span>Ver Mapa y Nodos</span> ➔
+              <span>Ver Detalle del Recorrido</span> ➔
             </a>
           </div>
         </div>
@@ -160,11 +168,11 @@ const rutasDestacadas = [
 </Layout>
 
 <script>
-  // TYPEWRITER
+  // TYPEWRITER AMIGABLE
   const phrases = [
-    "Descubre y optimiza tus trayectos turísticos",
-    "Algoritmo de Dijkstra para la ruta más eficiente",
-    "Integración en tiempo real con clima y sensores",
+    "Encuentra la mejor ruta para tu próximo viaje",
+    "Calcula trayectos rápidos y seguros en segundos",
+    "Circuito de turismo, naturaleza y gastronomía",
     "Desarrollado con GitHub Spec Kit + Gemini AI"
   ];
   let phraseIdx = 0; let charIdx = 0; let isDeleting = false;
@@ -181,12 +189,16 @@ const rutasDestacadas = [
   }
   typeStep();
 
-  // SIMULADOR DE RUTA
+  // SIMULADOR DE BÚSQUEDA TIPO BOOKING
   (window as any).simularRuta = function() {
     const box = document.getElementById('resultBox');
     if (box) {
       box.style.display = 'block';
-      box.innerHTML = '⚡ [EJECUTANDO DIJKSTRA]: Calculando matriz de pesos...\n✦ Ruta Óptima: Nodo 1 ➔ Nodo 4 ➔ Nodo 3\n⏱ Distancia: 4.5 km | Tiempo Estimado: 14 minutos\n☀️ Clima en Destino: 22°C // Despejado (Óptimo para visitar)';
+      box.innerHTML = '🎉 <strong>¡Ruta Encontrada con Éxito!</strong><br/><br/>' +
+        '📍 <strong>Trayecto:</strong> Nodo Origen ➔ Centro Histórico ➔ Destino Seleccionado<br/>' +
+        '⏱ <strong>Tiempo Estimado:</strong> 14 minutos (Ruta recomendada sin tráfico)<br/>' +
+        '☀️ <strong>Clima en la Zona:</strong> 22°C // Despejado y óptimo para pasear<br/>' +
+        '⭐ <strong>Puntuación de Viajeros:</strong> 4.9/5';
     }
   };
 </script>
