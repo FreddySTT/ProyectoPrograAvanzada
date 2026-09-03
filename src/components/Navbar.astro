@@ -6,38 +6,33 @@ const currentPath = pathname.replace(/\/$/, "");
 
 <header class="navbar-header">
   <div class="navbar-inner">
-    <!-- LOGO / BRAND -->
     <a href={`${baseUrl}/`} class="brand-link">
       <div class="brand-icon">
-        <span>⚔</span>
+        <span>🧭</span>
       </div>
       <div class="brand-info">
         <span class="brand-title cinzel">RIQSI RUTAS</span>
         <span class="brand-sub mono">
-          <span class="live-dot"></span> RUTAS & TURISMO // VOL. 2026
+          <span class="live-dot"></span> TURISMO & OPTIMIZACIÓN INTELIGENTE
         </span>
       </div>
     </a>
 
-    <!-- LINKS DE NAVEGACIÓN -->
     <nav class="nav-menu">
       <a href={`${baseUrl}/`} class={currentPath === baseUrl || currentPath === "" ? "nav-link active" : "nav-link"}>
-        <span>🔥 Inicio</span>
+        <span>🏠 Inicio</span>
       </a>
-      <a href={`${baseUrl}/materias`} class={currentPath.includes("/materias") ? "nav-link active" : "nav-link"}>
-        <span>📜 Materias</span>
-        <span class="mini-badge mono">UNI</span>
+      <a href={`${baseUrl}/rutas`} class={currentPath.includes("/rutas") ? "nav-link active" : "nav-link"}>
+        <span>🗺️ Rutas & Destinos</span>
       </a>
-      <a href={`${baseUrl}/personales`} class={currentPath.includes("/personales") ? "nav-link active" : "nav-link"}>
-        <span>⚔️ Personales</span>
-        <span class="mini-badge mono">LAB</span>
+      <a href={`${baseUrl}/especificaciones`} class={currentPath.includes("/especificaciones") ? "nav-link active" : "nav-link"}>
+        <span>⚙️ Spec Kit AI</span>
       </a>
     </nav>
 
-    <!-- CONTACTO -->
     <div class="nav-action-wrap">
-      <a href="#contacto" class="nav-btn-contact mono">
-        <span>Contactar</span> ✉️
+      <a href="#buscador" class="nav-btn-contact mono">
+        <span>Planificar Ruta</span> ➔
       </a>
     </div>
   </div>

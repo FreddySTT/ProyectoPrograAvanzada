@@ -1,0 +1,80 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const circuitos = [
+  {
+    titulo: "Ruta 01 // Centro Histórico & Colonial",
+    tipo: "PATRIMONIO",
+    distancia: "3.8 km",
+    duracion: "35 min",
+    paradas: ["Plaza Principal", "Catedral", "Museo Arqueológico", "Mercado Central"],
+    descripcion: "Ruta peatonal sugerida para conocer los hitos coloniales más representativos."
+  },
+  {
+    titulo: "Ruta 02 // Miradores & Vistas Panorámicas",
+    tipo: "PAISAJE & FOTO",
+    distancia: "8.4 km",
+    duracion: "1h 10 min",
+    paradas: ["Mirador Sur", "Cerro San Pedro", "Jardín Botánico"],
+    descripcion: "Trayecto de elevación progresiva con excelentes puntos fotográficos urbanos."
+  },
+  {
+    titulo: "Ruta 03 // Circuito Gastronómico Tradicional",
+    tipo: "GASTRONOMÍA",
+    distancia: "5.2 km",
+    duracion: "50 min",
+    paradas: ["Calle de las Casonas", "Paseo del Sabor", "Feria de Sabores"],
+    descripcion: "Navegación optimizada entre restaurantes y puestos típicos recomendados."
+  },
+  {
+    titulo: "Ruta 04 // Conexión Rápida de Transporte",
+    tipo: "MOVILIDAD RÁPIDA",
+    distancia: "11.0 km",
+    duracion: "20 min",
+    paradas: ["Terminal Terrestre", "Av. Principal", "Estación Central"],
+    descripcion: "Ruta de menor tiempo de traslado para viajeros en conexión."
+  }
+];
+---
+
+<Layout title="Rutas & Destinos">
+  <div style="margin-bottom: 2.5rem;">
+    <a href={`${import.meta.env.BASE_URL}/`} class="mono" style="color: var(--red-bright); display: inline-block; margin-bottom: 1rem;">← VOLVER AL INICIO</a>
+    <span class="mono" style="color: var(--red-bright); font-size: 0.72rem; letter-spacing: 1.5px; display: block;">CATÁLOGO OFICIAL // RIQSI RUTAS</span>
+    <h1 class="cinzel" style="font-size: clamp(2rem, 4.5vw, 3.2rem); color: var(--text-white); margin-bottom: 0.8rem;">Rutas & Circuitos Turísticos</h1>
+    <p style="color: var(--text-muted); font-size: 1.05rem; max-width: 800px;">
+      Explora las trayectorias calculadas de forma óptima según la preferencia de recorrido y tiempo disponible.
+    </p>
+  </div>
+
+  <div class="cards-layout-grid">
+    {circuitos.map(c => (
+      <div class="route-card">
+        <div>
+          <div class="card-top">
+            <span class="category-badge">{c.tipo}</span>
+            <span class="time-pill mono">⏱ {c.duracion} // 📍 {c.distancia}</span>
+          </div>
+          <h3 class="card-title cinzel">{c.titulo}</h3>
+          <p class="card-desc">{c.descripcion}</p>
+
+          <div style="margin-bottom: 1.2rem; font-size: 0.85rem; color: var(--text-parchment);">
+            <strong style="color: var(--red-bright); display: block; margin-bottom: 0.3rem;" class="mono">PARADAS CLAVE:</strong>
+            <ul style="display: flex; flex-direction: column; gap: 0.25rem;">
+              {c.paradas.map(p => (
+                <li style="display: flex; align-items: center; gap: 0.4rem;">
+                  <span style="color: var(--red-bright);">✦</span>
+                  <span>{p}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <button class="btn-detail mono" onclick="alert('Iniciando mapa interactivo para la ruta...');">
+          <span>Ver Mapa Interactivo</span> ➔
+        </button>
+      </div>
+    ))}
+  </div>
+</Layout>

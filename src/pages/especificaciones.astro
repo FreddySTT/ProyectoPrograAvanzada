@@ -1,0 +1,32 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Especificaciones">
+  <div style="margin-bottom: 2.5rem;">
+    <a href={`${import.meta.env.BASE_URL}/`} class="mono" style="color: var(--red-bright); display: inline-block; margin-bottom: 1rem;">← VOLVER AL INICIO</a>
+    <span class="mono" style="color: var(--red-bright); font-size: 0.72rem; letter-spacing: 1.5px; display: block;">ARQUITECTURA DE SOFTWARE // SPEC KIT</span>
+    <h1 class="cinzel" style="font-size: clamp(2rem, 4.5vw, 3.2rem); color: var(--text-white); margin-bottom: 0.8rem;">Especificaciones de Riqsi Rutas</h1>
+    <p style="color: var(--text-muted); font-size: 1.05rem; max-width: 800px;">
+      Documentación del sistema desarrollada bajo la metodología <strong>Spec-Driven Development</strong> de GitHub con Google Gemini AI.
+    </p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.8rem; margin-bottom: 3rem;">
+    <div style="background: #120a0d; border: 1px solid var(--border-red); padding: 1.8rem; border-radius: 12px;">
+      <span class="mono" style="color: var(--red-bright); font-size: 0.8rem; display: block; margin-bottom: 0.5rem;">01 // ALGORITMO PRINCIPAL</span>
+      <h3 class="cinzel" style="color: white; margin-bottom: 0.8rem; font-size: 1.3rem;">Optimización con Grafos (Dijkstra)</h3>
+      <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.6;">
+        El motor de cálculo modela la red de transporte y turismo como un grafo pesado dirigido donde los vértices representan paradas y las aristas representan distancias o tiempos dinámicos.
+      </p>
+    </div>
+
+    <div style="background: #120a0d; border: 1px solid var(--border-red); padding: 1.8rem; border-radius: 12px;">
+      <span class="mono" style="color: var(--red-bright); font-size: 0.8rem; display: block; margin-bottom: 0.5rem;">02 // METODOLOGÍA</span>
+      <h3 class="cinzel" style="color: white; margin-bottom: 0.8rem; font-size: 1.3rem;">GitHub Spec Kit Integration</h3>
+      <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.6;">
+        Uso de la herramienta specify-cli para mantener las especificaciones del sistema en formato Markdown asistido por Google Gemini AI para el desarrollo continuo del equipo.
+      </p>
+    </div>
+  </div>
+</Layout>
