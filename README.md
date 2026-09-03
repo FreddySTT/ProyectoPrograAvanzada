@@ -1,6 +1,6 @@
-# 🚀 Portafolio de Proyectos Web & Académicos
+# 🧭 Riqsi Rutas — Sistema Inteligente de Rutas & Turismo
 
-> Proyecto desarrollado con **Astro**, **TypeScript** y estilos modernos en **Negro y Rojo Carmesí**. Diseñado para albergar tanto **Proyectos de Materias Universitarias** como **Proyectos Personales / Side Projects**.
+> **Riqsi Rutas** ("Conoce Rutas" en quechua) es una plataforma de transporte, turismo y optimización de trayectos desarrollada con **Astro**, **TypeScript** y algoritmos de alta eficiencia en **C++ y Python**. Integrado con **GitHub Spec Kit (specify-cli)** usando **Gemini AI**.
 
 ---
 
@@ -8,9 +8,23 @@
 
 | # | Nombre Completo | Rol / Área Principal | Perfil |
 |---|---|---|---|
-| **1** | **Freddy Sergio Tejerina Trewhella** | Desarrollo Fullstack & Arquitectura | [GitHub](#) / [LinkedIn](#) |
+| **1** | **Freddy Sergio Tejerina Trewhella** | Lógica de Algoritmos & Fullstack | [GitHub](#) / [LinkedIn](#) |
 | **2** | **Camila Lara** | Diseño UI/UX & Frontend | [GitHub](#) / [LinkedIn](#) |
 | **3** | **Sergio Fuentes** | Backend, Bases de Datos & QA | [GitHub](#) / [LinkedIn](#) |
+
+---
+
+## 🛠️ Spec-Driven Development (GitHub Spec Kit + Gemini)
+
+Este proyecto implementa el flujo **Spec Kit** de GitHub para desarrollo asistido por IA:
+
+- **Configuración de IA:** Google Gemini CLI (`gemini`)
+- **Comandos Spec Kit:**
+  - `/speckit.constitution` — Principios del proyecto Riqsi Rutas
+  - `/speckit.specify` — Especificación de funcionalidades
+  - `/speckit.plan` — Plan técnico de implementación
+  - `/speckit.tasks` — Desglose de tareas ejecutables
+  - `/speckit.implement` — Ejecución de desarrollo
 
 ---
 
@@ -18,61 +32,36 @@
 
 ```text
 ProyectoPrograAvanzada/
-├── src/                     # Código fuente del proyecto web
-│   ├── components/          # Componentes modulares reutilizables
-│   ├── layouts/             # Plantillas principales del sistema
-│   └── pages/               # Rutas y páginas de la aplicación
-├── public/                  # Estilos globales y recursos estáticos
+├── .specify/                # Configuración y plantillas de GitHub Spec Kit
+├── .gemini/                 # Comandos y configuración de Gemini AI
+├── src/                     # Código fuente de Riqsi Rutas (Astro + TS)
+│   ├── components/          # Navbar, Footer, CardProyecto
+│   ├── layouts/             # Layout principal y sistema modal
+│   └── pages/               # Inicio, Materias y Lab
+├── public/                  # Hoja de estilos global Negro & Rojo Carmesí
 ├── .github/workflows/       # Despliegue automático (GitHub Actions)
-├── astro.config.mjs         # Configuración general de Astro
+├── astro.config.mjs         # Configuración de rutas y base URL
 ├── package.json             # Dependencias del proyecto
-└── README.md                # Documentación oficial del equipo
+└── README.md                # Documentación oficial de Riqsi Rutas
 ```
 
 ---
 
-## 🛠️ Instalación y Ejecución Local
+## 🚀 Instalación y Ejecución Local
 
-### 1. Clonar el repositorio
 ```bash
-git clone <URL_DEL_REPOSITORIO>
-cd mis-portafolios
-```
+# 1. Clonar el repositorio
+git clone https://github.com/FreddySTT/ProyectoPrograAvanzada.git
+cd ProyectoPrograAvanzada
 
-### 2. Instalar dependencias
-```bash
+# 2. Instalar dependencias
 npm install
-```
 
-### 3. Iniciar el servidor de desarrollo
-```bash
+# 3. Iniciar servidor local
 npm run dev
 ```
 El proyecto estará disponible en **`http://localhost:4321`**.
 
-### 4. Compilar para producción
-```bash
-npm run build
-```
-
 ---
 
-## 📜 Flujo de Trabajo en Git (Para el Equipo)
-
-1. **Crear una rama para trabajar en una funcionalidad:**
-   ```bash
-   git checkout -b feature/nueva-seccion
-   ```
-2. **Hacer commit de los cambios:**
-   ```bash
-   git add .
-   git commit -m "feat: agregar nueva funcionalidad"
-   ```
-3. **Subir la rama a GitHub:**
-   ```bash
-   git push origin feature/nueva-seccion
-   ```
-
----
-
-© 2026 - Desarrollado por **Freddy Sergio Tejerina Trewhella**, **Camila Lara** y **Sergio Fuentes**.
+© 2026 - **Riqsi Rutas** por **Freddy Sergio Tejerina Trewhella**, **Camila Lara** y **Sergio Fuentes**.
