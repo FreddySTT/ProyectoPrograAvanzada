@@ -17,22 +17,16 @@
 ## 📁 Estructura del Proyecto
 
 ```text
-mis-portafolios/
-├── public/
-│   └── style.css            # Hoja de estilos global Negro & Rojo Carmesí
-├── src/
-│   ├── components/
-│   │   ├── Navbar.astro     # Barra de navegación interactiva
-│   │   ├── Footer.astro     # Pie de página con canales y estado
-│   │   └── CardProyecto.astro # Tarjeta con mockup y zoom lightbox
-│   ├── layouts/
-│   │   └── Layout.astro     # Base HTML, modal de zoom y sistema de audio
-│   └── pages/
-│       ├── index.astro      # Portada principal, terminal y sección de integrantes
-│       ├── materias.astro   # Proyectos de materias universitarias
-│       └── personales.astro # Proyectos personales y experimentos
-├── package.json
-└── README.md
+ProyectoPrograAvanzada/
+├── src/                     # Código fuente del proyecto web
+│   ├── components/          # Componentes modulares reutilizables
+│   ├── layouts/             # Plantillas principales del sistema
+│   └── pages/               # Rutas y páginas de la aplicación
+├── public/                  # Estilos globales y recursos estáticos
+├── .github/workflows/       # Despliegue automático (GitHub Actions)
+├── astro.config.mjs         # Configuración general de Astro
+├── package.json             # Dependencias del proyecto
+└── README.md                # Documentación oficial del equipo
 ```
 
 ---
