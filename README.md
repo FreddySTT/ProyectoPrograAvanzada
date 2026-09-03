@@ -1,5 +1,10 @@
 # 🧭 Riqsi Rutas — Plataforma de Turismo & Navegación Inteligente
 
+> 🌐 **SITIO WEB EN VIVO (GITHUB PAGES):**  
+> 👉 **[https://FreddySTT.github.io/ProyectoPrograAvanzada/](https://FreddySTT.github.io/ProyectoPrograAvanzada/)**
+
+---
+
 > **Riqsi Rutas** es una aplicación web interactiva para la optimización de trayectos turísticos y transporte urbano mediante algoritmos de grafos en tiempo real (Dijkstra).
 
 ---
