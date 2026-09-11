@@ -5,7 +5,7 @@
 
 ---
 
-> **Riqsi Rutas** es una aplicación web interactiva para la optimización de trayectos turísticos y transporte urbano mediante algoritmos de grafos en tiempo real (Dijkstra).
+> **Riqsi Rutas** Esta aplicación web es una solución tecnológica diseñada para optimizar la movilidad urbana y la planificación de trayectos turísticos. Mediante el uso de estructuras de datos basadas en grafos y la implementación del algoritmo de Dijkstra adaptado para procesamiento en tiempo real, la plataforma calcula la ruta más eficiente entre múltiples puntos de interés (POIs), reduciendo tiempos de traslado, costos y congestionamiento.
 
 ---
 
