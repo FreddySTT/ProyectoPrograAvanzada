@@ -1,5 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CalendarPicker, type DateRange } from "./components/CalendarPicker";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthModal } from "./components/AuthModal";
+import { AdminBar } from "./components/AdminBar";
+import { AdminPlaceModal } from "./components/AdminPlaceModal";
+import { AdminUsersModal } from "./components/AdminUsersModal";
+import { AdminAnnouncementModal } from "./components/AdminAnnouncementModal";
+import { INITIAL_PLACES, INITIAL_ANNOUNCEMENT } from "./data/initialData";
+import type { PlaceItem, Announcement } from "./types/auth";
+
 import heroImage from "./assets/cochabamba-hero.jpg";
 import adventureBikeImage from "./assets/aventura-bici.jpg";
 import adventureHikeImage from "./assets/aventura-caminata.jpg";
@@ -35,7 +44,11 @@ type IconName =
   | "mountain"
   | "instagram"
   | "facebook"
-  | "youtube";
+  | "youtube"
+  | "plus"
+  | "edit"
+  | "trash"
+  | "shield";
 
 function Icon({ name, size = 20, filled = false }: { name: IconName; size?: number; filled?: boolean }) {
   const paths: Record<IconName, React.ReactNode> = {
@@ -60,6 +73,10 @@ function Icon({ name, size = 20, filled = false }: { name: IconName; size?: numb
     instagram: <><rect x="2" y="2" width="20" height="20" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" /></>,
     facebook: <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />,
     youtube: <><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19.1c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.43z" /><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" /></>,
+    plus: <path d="M12 5v14m-7-7h14" />,
+    edit: <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
+    trash: <><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></>,
+    shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
   };
   return (
     <svg
@@ -81,15 +98,10 @@ function Icon({ name, size = 20, filled = false }: { name: IconName; size?: numb
 function AndeanDiamond({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="shrink-0 inline-block" aria-hidden="true">
-      {/* Top petal - Fucsia Andino */}
       <polygon points="12,2 16,7 12,12 8,7" fill="#D81B60" />
-      {/* Bottom petal - Amarillo Sol */}
       <polygon points="12,12 16,17 12,22 8,17" fill="#F4C430" />
-      {/* Left petal - Verde Valle */}
       <polygon points="2,12 7,8 12,12 7,16" fill="#4CAF50" />
-      {/* Right petal - Naranja Ayni */}
       <polygon points="12,12 17,8 22,12 17,16" fill="#F7931E" />
-      {/* Center dot - Morado de la Cultura */}
       <circle cx="12" cy="12" r="2.2" fill="#7B1FA2" />
     </svg>
   );
@@ -105,17 +117,6 @@ function MountainLogo({ className = "w-7 h-7" }: { className?: string }) {
     </svg>
   );
 }
-
-const places = [
-  { title: "Cristo de la Concordia", area: "Cerro San Pedro", tag: "Imperdible", category: "cultura", image: heroImage, rating: "4.8", time: "2–3 h" },
-  { title: "Palacio Portales", area: "Queru Queru", tag: "Cultura", category: "cultura", image: heritageImage, rating: "4.7", time: "1–2 h" },
-  { title: "Parque Nacional Tunari", area: "Cordillera", tag: "Naturaleza", category: "naturaleza", image: tunariImage, rating: "4.9", time: "Día completo" },
-  { title: "Mercado La Cancha & Sabores", area: "La Cancha", tag: "Gastronomía", category: "gastronomia", image: foodImage, rating: "4.9", time: "2 h" },
-  { title: "Valle de las Ánimas", area: "Tiquipaya", tag: "Naturaleza", category: "naturaleza", image: natureValleyImage, rating: "4.8", time: "4–5 h" },
-  { title: "Ruta del Silpancho y Pique", area: "El Prado y Cala Cala", tag: "Gastronomía", category: "gastronomia", image: foodTraditionalImage, rating: "5.0", time: "3 h" },
-  { title: "Danzas y Tradición Viva", area: "Centro Histórico", tag: "Tradición", category: "cultura", image: cultureDanceImage, rating: "4.9", time: "Medio día" },
-  { title: "Travesía en Bici por los Valles", area: "Valle Alto", tag: "Aventura", category: "aventura", image: adventureBikeImage, rating: "4.8", time: "4 h" },
-];
 
 const quickCards = [
   {
@@ -248,7 +249,6 @@ function CategoryPage({
   const data = categoryPages[category];
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#37474F]">
-      {/* Header */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur shadow-sm border-b border-[#E2D9CC]">
         <div className="aguayo-strip h-1.5" />
         <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between px-5 lg:px-8">
@@ -279,7 +279,6 @@ function CategoryPage({
       </header>
 
       <main>
-        {/* Hero Section */}
         <section className="relative min-h-[460px] overflow-hidden text-white">
           <img src={data.hero} alt={data.title} className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#1E293B]/95 via-[#1E293B]/70 to-transparent" />
@@ -303,7 +302,6 @@ function CategoryPage({
           </div>
         </section>
 
-        {/* Experiences Section */}
         <section className="mx-auto max-w-[1240px] px-5 py-16 lg:px-8">
           <div className="mb-9 flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div>
@@ -361,26 +359,8 @@ function CategoryPage({
             })}
           </div>
         </section>
-
-        {/* CTA Banner */}
-        <section className="mx-auto max-w-[1240px] px-5 pb-20 lg:px-8">
-          <div className="overflow-hidden rounded-[28px] text-white shadow-xl" style={{ backgroundColor: data.accent }}>
-            <div className="aguayo-strip h-2.5" />
-            <div className="flex flex-col items-start justify-between gap-7 p-8 md:flex-row md:items-center md:p-12">
-              <div className="max-w-2xl">
-                <p className="font-subtitle text-xs font-bold uppercase tracking-[.2em] text-white/80">Hecho a tu medida</p>
-                <h2 className="font-display mt-2 text-3xl sm:text-4xl font-bold">Combina estas experiencias en tu propia ruta</h2>
-                <p className="mt-3 text-sm leading-6 text-white/90">Organiza tiempos, paradas y presupuestos de la mano de expertos locales.</p>
-              </div>
-              <button className="shrink-0 rounded-full bg-white px-7 py-3.5 font-subtitle text-sm font-bold shadow-lg transition hover:bg-[#FAF7F2]" style={{ color: data.accent }}>
-                Crear mi itinerario →
-              </button>
-            </div>
-          </div>
-        </section>
       </main>
 
-      {/* Footer */}
       <footer className="bg-[#1E293B] text-white/75">
         <div className="aguayo-strip h-1.5" />
         <div className="mx-auto flex max-w-[1240px] items-center justify-between px-5 py-7 text-xs">
@@ -396,14 +376,46 @@ function CategoryPage({
   );
 }
 
-export default function App() {
+function MainApp() {
+  const { currentUser, isEffectiveAdmin, logout } = useAuth();
+
   const [favorites, setFavorites] = useState<string[]>([]);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [notice, setNotice] = useState("");
   const [activeCategory, setActiveCategory] = useState<CategoryKey | null>(null);
   const [selectedFilter, setSelectedFilter] = useState("todos");
 
-  // Search state (No redundant Cochabamba location!)
+  // Dynamic Places State (Persisted in localStorage)
+  const [places, setPlaces] = useState<PlaceItem[]>(() => {
+    try {
+      const stored = localStorage.getItem("riqsi_places_v1");
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      console.error("Error loading places", e);
+    }
+    return INITIAL_PLACES;
+  });
+
+  // Official Announcement Banner (Configured by admin, visible to all)
+  const [announcement, setAnnouncement] = useState<Announcement>(() => {
+    try {
+      const stored = localStorage.getItem("riqsi_announcement_v1");
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      console.error("Error loading announcement", e);
+    }
+    return INITIAL_ANNOUNCEMENT;
+  });
+
+  // Modals state
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<"login" | "register">("login");
+  const [isAdminPlaceModalOpen, setIsAdminPlaceModalOpen] = useState(false);
+  const [editingPlace, setEditingPlace] = useState<PlaceItem | null>(null);
+  const [isAdminUsersModalOpen, setIsAdminUsersModalOpen] = useState(false);
+  const [isAdminAnnouncementModalOpen, setIsAdminAnnouncementModalOpen] = useState(false);
+
+  // Search state
   const [searchQuery, setSearchQuery] = useState("");
   const [travelers, setTravelers] = useState("2 personas");
   const [dateRange, setDateRange] = useState<DateRange>({
@@ -413,6 +425,29 @@ export default function App() {
   });
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
+  // Sync places to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("riqsi_places_v1", JSON.stringify(places));
+    } catch (e) {
+      console.error("Error saving places", e);
+    }
+  }, [places]);
+
+  // Sync announcement to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("riqsi_announcement_v1", JSON.stringify(announcement));
+    } catch (e) {
+      console.error("Error saving announcement", e);
+    }
+  }, [announcement]);
+
+  const notify = (msg: string) => {
+    setNotice(msg);
+    window.setTimeout(() => setNotice(""), 4500);
+  };
+
   const toggleFavorite = (title: string) => {
     setFavorites((items) =>
       items.includes(title) ? items.filter((item) => item !== title) : [...items, title]
@@ -421,12 +456,55 @@ export default function App() {
 
   const handleSearch = () => {
     const activityText = searchQuery ? ` "${searchQuery}"` : "";
-    setNotice(`Buscando experiencias${activityText} para ${travelers} entre el ${dateRange.label}.`);
-    window.setTimeout(() => setNotice(""), 4000);
+    notify(`Buscando experiencias${activityText} para ${travelers} entre el ${dateRange.label}.`);
+  };
+
+  // Place operations for admin
+  const handleSavePlace = (placeToSave: PlaceItem) => {
+    setPlaces((prev) => {
+      const exists = prev.some((p) => p.id === placeToSave.id);
+      if (exists) {
+        return prev.map((p) => (p.id === placeToSave.id ? placeToSave : p));
+      }
+      return [placeToSave, ...prev];
+    });
+    notify(editingPlace ? `Destino "${placeToSave.title}" actualizado con éxito.` : `¡Nuevo destino "${placeToSave.title}" agregado al catálogo!`);
+    setEditingPlace(null);
+  };
+
+  const handleDeletePlace = (id: string, title: string) => {
+    if (confirm(`¿Estás seguro de eliminar el destino "${title}"?`)) {
+      setPlaces((prev) => prev.filter((p) => p.id !== id));
+      notify(`Destino "${title}" eliminado.`);
+    }
+  };
+
+  const handleToggleFeatured = (id: string) => {
+    setPlaces((prev) =>
+      prev.map((p) => {
+        if (p.id === id) {
+          const newFeatured = !p.featured;
+          notify(newFeatured ? `"${p.title}" marcado como Destacado ⭐` : `"${p.title}" retirado de destacados.`);
+          return { ...p, featured: newFeatured };
+        }
+        return p;
+      })
+    );
+  };
+
+  const openNewPlaceModal = () => {
+    setEditingPlace(null);
+    setIsAdminPlaceModalOpen(true);
+  };
+
+  const openEditPlaceModal = (place: PlaceItem) => {
+    setEditingPlace(place);
+    setIsAdminPlaceModalOpen(true);
   };
 
   const filteredPlaces = places.filter((p) => {
     if (selectedFilter === "todos") return true;
+    if (selectedFilter === "destacados") return !!p.featured;
     return p.category === selectedFilter;
   });
 
@@ -449,10 +527,43 @@ export default function App() {
       {/* Top Aguayo line */}
       <div className="aguayo-strip h-1.5 w-full fixed top-0 left-0 z-50 shadow-sm" />
 
+      {/* Official Announcement Banner (Manageable by Admin) */}
+      {announcement.active && (
+        <div className="relative z-40 bg-[#1E293B] text-white pt-2 pb-2 px-4 border-b border-[#D81B60]/40">
+          <div className="mx-auto max-w-[1240px] flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="rounded-full bg-[#D81B60] px-2.5 py-0.5 font-subtitle text-[10px] font-black uppercase tracking-wider text-white">
+                {announcement.badge}
+              </span>
+              <span className="font-subtitle text-white/90">{announcement.message}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              {announcement.linkText && (
+                <a
+                  href="#destacados"
+                  className="font-subtitle font-bold text-[#F4C430] hover:underline"
+                >
+                  {announcement.linkText} →
+                </a>
+              )}
+              {isEffectiveAdmin && (
+                <button
+                  onClick={() => setIsAdminAnnouncementModalOpen(true)}
+                  className="rounded-lg bg-white/10 hover:bg-white/20 px-2 py-0.5 text-[10px] font-subtitle font-bold text-[#F4C430] border border-[#F4C430]/30 transition"
+                  title="Editar este comunicado"
+                >
+                  ✏️ Editar aviso
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header / Navbar */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md shadow-sm border-b border-[#E2D9CC]/70">
         <div className="mx-auto flex h-18 max-w-[1240px] items-center justify-between px-5 lg:px-8">
-          {/* Logo matching proposal image */}
+          {/* Logo matching proposal */}
           <a href="#" className="flex items-center gap-3 group" aria-label="Cochabamba Turismo">
             <span className="grid h-10 w-10 place-items-center rounded-full bg-[#FAF7F2] border border-[#E2D9CC] shadow-sm transition group-hover:scale-105">
               <AndeanDiamond size={22} />
@@ -475,11 +586,11 @@ export default function App() {
             <a className="hover:text-[#D81B60] transition" href="#planifica">Turismo</a>
           </nav>
 
-          {/* Actions */}
-          <div className="flex items-center gap-3">
+          {/* Actions & User State */}
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => setIsCalendarOpen(true)}
-              className="hidden sm:flex items-center gap-2 rounded-full border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-1.5 font-subtitle text-xs font-bold text-[#37474F] hover:border-[#D81B60] hover:text-[#D81B60] transition shadow-sm"
+              className="hidden lg:flex items-center gap-2 rounded-full border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-1.5 font-subtitle text-xs font-bold text-[#37474F] hover:border-[#D81B60] hover:text-[#D81B60] transition shadow-sm"
               title="Abrir calendario"
             >
               <Icon name="calendar" size={16} />
@@ -488,7 +599,7 @@ export default function App() {
 
             <button
               onClick={() =>
-                setNotice(
+                notify(
                   favorites.length > 0
                     ? `Tienes ${favorites.length} lugar(es) guardado(s) en favoritos.`
                     : "Aún no tienes favoritos. ¡Haz clic en el corazón de cualquier experiencia!"
@@ -505,6 +616,56 @@ export default function App() {
               )}
             </button>
 
+            {/* USER LOGIN / REGISTRATION OR PROFILE BADGE */}
+            {!currentUser ? (
+              <div className="hidden sm:flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setAuthModalTab("login");
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="rounded-full border border-[#E2D9CC] bg-white px-3.5 py-1.5 font-subtitle text-xs font-bold text-[#37474F] hover:border-[#D81B60] hover:text-[#D81B60] transition shadow-xs"
+                >
+                  Iniciar Sesión
+                </button>
+                <button
+                  onClick={() => {
+                    setAuthModalTab("register");
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="rounded-full bg-[#D81B60] px-3.5 py-1.5 font-subtitle text-xs font-extrabold text-white shadow-md shadow-[#D81B60]/20 hover:bg-[#b0144c] transition"
+                >
+                  Crear Cuenta
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-[#FAF7F2] border border-[#E2D9CC] rounded-full pl-1.5 pr-2 py-1 shadow-xs">
+                <span className="h-7 w-7 rounded-full bg-white shadow-xs border border-[#E2D9CC] grid place-items-center text-sm">
+                  {currentUser.avatar || (currentUser.role === "admin" ? "👑" : "🎒")}
+                </span>
+                <div className="hidden sm:flex flex-col text-left">
+                  <span className="font-subtitle text-xs font-bold text-[#37474F] leading-tight truncate max-w-[100px]">
+                    {currentUser.name.split(" ")[0]}
+                  </span>
+                  <span className={`text-[9px] font-extrabold uppercase tracking-wider ${
+                    currentUser.role === "admin" ? "text-[#D81B60]" : "text-[#0097A7]"
+                  }`}>
+                    {currentUser.role === "admin" ? "Admin" : "Turista"}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    logout();
+                    notify("Sesión cerrada correctamente.");
+                  }}
+                  className="ml-1 rounded-full p-1 text-[#6D4C41] hover:text-red-600 hover:bg-white transition"
+                  title="Cerrar sesión"
+                >
+                  <span className="text-xs">🚪</span>
+                </button>
+              </div>
+            )}
+
             <button
               className="rounded-full border border-[#E2D9CC] p-2 text-[#37474F] md:hidden"
               onClick={() => setMobileMenu(!mobileMenu)}
@@ -517,14 +678,62 @@ export default function App() {
 
         {/* Mobile menu */}
         {mobileMenu && (
-          <div className="mx-4 mb-4 rounded-2xl bg-white p-5 text-sm shadow-xl md:hidden border border-[#E2D9CC]">
-            <a className="block py-2.5 font-subtitle font-bold text-[#37474F]" href="#inicio" onClick={() => setMobileMenu(false)}>Inicio</a>
-            <a className="block py-2.5 font-subtitle font-bold text-[#37474F]" href="#explora" onClick={() => setMobileMenu(false)}>Explora</a>
-            <a className="block py-2.5 font-subtitle font-bold text-[#37474F]" href="#destacados" onClick={() => setMobileMenu(false)}>Cultura</a>
-            <a className="block py-2.5 font-subtitle font-bold text-[#37474F]" href="#planifica" onClick={() => setMobileMenu(false)}>Turismo</a>
+          <div className="mx-4 mb-4 rounded-2xl bg-white p-5 text-sm shadow-xl md:hidden border border-[#E2D9CC] space-y-3">
+            <a className="block py-2 font-subtitle font-bold text-[#37474F]" href="#inicio" onClick={() => setMobileMenu(false)}>Inicio</a>
+            <a className="block py-2 font-subtitle font-bold text-[#37474F]" href="#explora" onClick={() => setMobileMenu(false)}>Explora</a>
+            <a className="block py-2 font-subtitle font-bold text-[#37474F]" href="#destacados" onClick={() => setMobileMenu(false)}>Cultura</a>
+            <a className="block py-2 font-subtitle font-bold text-[#37474F]" href="#planifica" onClick={() => setMobileMenu(false)}>Turismo</a>
+            
+            <div className="pt-2 border-t border-[#E8E3D8]">
+              {!currentUser ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      setAuthModalTab("login");
+                      setIsAuthModalOpen(true);
+                      setMobileMenu(false);
+                    }}
+                    className="w-full rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] py-2 font-subtitle font-bold text-xs text-[#37474F]"
+                  >
+                    Iniciar Sesión
+                  </button>
+                  <button
+                    onClick={() => {
+                      setAuthModalTab("register");
+                      setIsAuthModalOpen(true);
+                      setMobileMenu(false);
+                    }}
+                    className="w-full rounded-xl bg-[#D81B60] py-2 font-subtitle font-bold text-xs text-white"
+                  >
+                    Crear Cuenta
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between bg-[#FAF7F2] p-2.5 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <span>{currentUser.avatar}</span>
+                    <div>
+                      <p className="font-subtitle text-xs font-bold text-[#37474F]">{currentUser.name}</p>
+                      <p className="text-[10px] text-[#6D4C41]">Rol: {currentUser.role === "admin" ? "Administrador" : "Turista Normal"}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      logout();
+                      setMobileMenu(false);
+                      notify("Sesión cerrada.");
+                    }}
+                    className="text-xs text-red-600 font-bold"
+                  >
+                    Salir
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => { setIsCalendarOpen(true); setMobileMenu(false); }}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-[#D81B60] px-5 py-2.5 font-subtitle font-bold text-white shadow"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-[#D81B60] px-5 py-2.5 font-subtitle font-bold text-white shadow"
             >
               <Icon name="calendar" size={17} /> Elegir fechas de viaje
             </button>
@@ -533,17 +742,16 @@ export default function App() {
       </header>
 
       <main id="inicio">
-        {/* HERO SECTION matching mobile mockup */}
+        {/* HERO SECTION */}
         <section className="relative min-h-[580px] lg:min-h-[660px] overflow-hidden bg-[#1E293B] text-white">
           <img
             src={heroImage}
             alt="Panorámica de Cochabamba, Cristo de la Concordia y Cordillera del Tunari"
             className="absolute inset-0 h-full w-full object-cover object-center"
           />
-          {/* Overlay gradient */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#1E293B]/95 via-[#1E293B]/55 to-black/30" />
 
-          {/* Aguayo decorative corner banner as in the user proposal image */}
+          {/* Aguayo decorative corner banner */}
           <div className="absolute right-0 bottom-0 hidden md:block w-72 h-72 pointer-events-none opacity-85">
             <div className="aguayo-strip absolute bottom-0 right-0 w-96 h-12 -rotate-45 translate-x-20 translate-y-8 shadow-2xl" />
             <div className="aguayo-strip absolute bottom-0 right-0 w-96 h-5 -rotate-45 translate-x-28 translate-y-16 shadow-lg" />
@@ -551,22 +759,18 @@ export default function App() {
 
           <div className="relative mx-auto flex min-h-[580px] lg:min-h-[660px] max-w-[1240px] flex-col justify-center px-5 py-20 lg:px-8">
             <div className="max-w-[760px]">
-              {/* "BIENVENIDOS A" badge from mockup */}
               <p className="font-subtitle text-xs sm:text-sm font-extrabold uppercase tracking-[0.28em] text-[#F4C430] mb-3">
                 BIENVENIDOS A
               </p>
 
-              {/* Title Qhapi / Serif Display */}
               <h1 className="font-display text-5xl sm:text-7xl lg:text-[84px] font-bold tracking-tight leading-[1.02]">
                 Cochabamba
               </h1>
 
-              {/* Subtitle from mockup in Montserrat Alternates */}
               <p className="font-subtitle mt-4 text-lg sm:text-2xl font-medium text-white/95 leading-snug">
                 Naturaleza, cultura y tradición en un solo lugar.
               </p>
 
-              {/* CTA button from mockup in Fucsia Andino */}
               <div className="mt-8 flex flex-wrap items-center gap-4">
                 <a
                   href="#explora"
@@ -581,13 +785,25 @@ export default function App() {
                 >
                   <Icon name="calendar" size={18} /> Planificar fechas
                 </button>
+
+                {/* Si no está logueado, botón de acceso rápido */}
+                {!currentUser && (
+                  <button
+                    onClick={() => {
+                      setAuthModalTab("login");
+                      setIsAuthModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full border-2 border-[#F4C430] bg-[#1E293B]/70 backdrop-blur px-5 py-3 font-subtitle text-sm font-bold text-[#F4C430] hover:bg-[#F4C430] hover:text-[#1E293B] transition"
+                  >
+                    <span>🔐 Iniciar Sesión / Demo</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* MODERN INTEGRATED SEARCH BOX (Without redundant Cochabamba location) */}
+            {/* INTEGRATED SEARCH BOX */}
             <div className="mt-12 max-w-[1080px] rounded-3xl bg-white p-3 text-[#37474F] shadow-[0_20px_60px_rgba(0,0,0,0.35)] border border-[#E2D9CC]">
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1.5fr_1.3fr_.9fr_auto] lg:divide-x lg:divide-[#E2D9CC]">
-                {/* 1. ¿Qué experiencia buscas? */}
                 <div className="search-field">
                   <span className="search-icon"><Icon name="search" size={22} /></span>
                   <div className="w-full">
@@ -601,7 +817,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 2. ¿Cuándo? Calendario Prominente */}
                 <div
                   className="search-field cursor-pointer group"
                   onClick={() => setIsCalendarOpen(true)}
@@ -623,7 +838,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 3. Viajeros */}
                 <div className="search-field">
                   <span className="search-icon text-[#4CAF50]"><Icon name="people" size={22} /></span>
                   <div className="w-full">
@@ -642,7 +856,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 4. Botón de búsqueda */}
                 <div className="flex items-center p-1">
                   <button
                     onClick={handleSearch}
@@ -657,7 +870,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* QUICK CATEGORY CARDS SECTION (Matching proposal mockup) */}
+        {/* QUICK CATEGORY CARDS SECTION */}
         <section id="explora" className="mx-auto max-w-[1240px] px-5 -mt-6 sm:-mt-10 relative z-20 lg:px-8">
           <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
             {quickCards.map((card) => (
@@ -693,19 +906,26 @@ export default function App() {
           </div>
         </section>
 
-        {/* DESTINOS DESTACADOS: "Lugares que te enamoran" (Mockup title) */}
+        {/* DESTINOS DESTACADOS: "Lugares que te enamoran" */}
         <section id="destacados" className="mx-auto max-w-[1240px] px-5 py-20 lg:px-8">
           <div className="mb-10 flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div>
-              <p className="eyebrow">—— DESTINOS DESTACADOS</p>
+              <div className="flex items-center gap-2">
+                <p className="eyebrow">—— DESTINOS DESTACADOS</p>
+                {isEffectiveAdmin && (
+                  <span className="rounded-full bg-[#1E293B] px-2.5 py-0.5 font-subtitle text-[10px] font-black uppercase text-[#F4C430] border border-[#F4C430]/40">
+                    👑 Controles Admin Activos
+                  </span>
+                )}
+              </div>
               <h2 className="section-title">Lugares que te enamoran</h2>
               <p className="mt-3 max-w-xl text-sm sm:text-base leading-relaxed text-[#6D4C41]">
                 Desde la imponente Cordillera hasta los encantadores valles, Cochabamba es un destino lleno de vida.
               </p>
             </div>
 
-            {/* Filter pills styled as in the mockup */}
-            <div className="flex flex-wrap gap-2">
+            {/* Filter pills */}
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setSelectedFilter("todos")}
                 className={`rounded-full px-4 py-1.5 font-subtitle text-xs font-bold transition shadow-xs ${
@@ -714,8 +934,21 @@ export default function App() {
                     : "bg-white text-[#6D4C41] border border-[#E2D9CC] hover:border-[#D81B60]"
                 }`}
               >
-                Ver todos →
+                Ver todos ({places.length})
               </button>
+
+              {/* Filtro exclusivo de admin o para ver destacados */}
+              <button
+                onClick={() => setSelectedFilter("destacados")}
+                className={`rounded-full px-4 py-1.5 font-subtitle text-xs font-bold transition shadow-xs flex items-center gap-1 ${
+                  selectedFilter === "destacados"
+                    ? "bg-[#F7931E] text-white shadow-md"
+                    : "bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A] hover:bg-[#FDE68A]"
+                }`}
+              >
+                <span>⭐ Destacados</span>
+              </button>
+
               <button
                 onClick={() => setSelectedFilter("naturaleza")}
                 className={`rounded-full px-4 py-1.5 font-subtitle text-xs font-bold transition shadow-xs ${
@@ -726,6 +959,7 @@ export default function App() {
               >
                 Naturaleza
               </button>
+
               <button
                 onClick={() => setSelectedFilter("cultura")}
                 className={`rounded-full px-4 py-1.5 font-subtitle text-xs font-bold transition shadow-xs ${
@@ -736,6 +970,7 @@ export default function App() {
               >
                 Cultura
               </button>
+
               <button
                 onClick={() => setSelectedFilter("gastronomia")}
                 className={`rounded-full px-4 py-1.5 font-subtitle text-xs font-bold transition shadow-xs ${
@@ -746,6 +981,7 @@ export default function App() {
               >
                 Gastronomía
               </button>
+
               <button
                 onClick={() => setSelectedFilter("aventura")}
                 className={`rounded-full px-4 py-1.5 font-subtitle text-xs font-bold transition shadow-xs ${
@@ -756,17 +992,53 @@ export default function App() {
               >
                 Aventura
               </button>
+
+              {/* Botón rápido para aumentar para el admin */}
+              {isEffectiveAdmin && (
+                <button
+                  onClick={openNewPlaceModal}
+                  className="rounded-full bg-[#1E293B] text-[#F4C430] hover:bg-[#334155] border border-[#F4C430]/40 px-4 py-1.5 font-subtitle text-xs font-extrabold transition shadow-sm flex items-center gap-1.5"
+                >
+                  <Icon name="plus" size={15} /> Aumentar Lugar
+                </button>
+              )}
             </div>
           </div>
 
           {/* Cards Grid */}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Si es Administrador: Tarjeta destacada de creación al inicio */}
+            {isEffectiveAdmin && (
+              <button
+                type="button"
+                onClick={openNewPlaceModal}
+                className="group relative min-h-[380px] rounded-[26px] border-2 border-dashed border-[#D81B60]/60 bg-gradient-to-b from-[#FFF1F2]/60 to-white p-6 text-center shadow-sm hover:border-[#D81B60] hover:shadow-xl hover:-translate-y-1 transition duration-300 flex flex-col items-center justify-center gap-4"
+              >
+                <div className="grid h-16 w-16 place-items-center rounded-2xl bg-[#D81B60] text-white shadow-lg shadow-[#D81B60]/30 group-hover:scale-110 transition">
+                  <Icon name="plus" size={30} />
+                </div>
+                <div>
+                  <h3 className="font-subtitle text-xl font-extrabold text-[#37474F] group-hover:text-[#D81B60] transition">
+                    Aumentar Nueva Ruta
+                  </h3>
+                  <p className="mt-1 text-xs text-[#6D4C41] max-w-[200px] mx-auto leading-relaxed">
+                    Añade un nuevo atractivo, experiencia o gastronomía al portal de Cochabamba.
+                  </p>
+                </div>
+                <span className="rounded-full bg-[#D81B60] px-4 py-1.5 font-subtitle text-xs font-bold text-white shadow">
+                  + Crear Destino
+                </span>
+              </button>
+            )}
+
             {filteredPlaces.map((place) => {
               const isFavorite = favorites.includes(place.title);
               return (
                 <article
-                  key={place.title}
-                  className="group overflow-hidden rounded-[26px] bg-white border border-[#E2D9CC] shadow-md hover:shadow-2xl transition duration-300 flex flex-col justify-between"
+                  key={place.id || place.title}
+                  className={`group relative overflow-hidden rounded-[26px] bg-white border shadow-md hover:shadow-2xl transition duration-300 flex flex-col justify-between ${
+                    isEffectiveAdmin ? "border-[#F4C430]/60 ring-1 ring-[#F4C430]/30" : "border-[#E2D9CC]"
+                  }`}
                 >
                   <div className="relative h-56 overflow-hidden">
                     <img
@@ -774,9 +1046,20 @@ export default function App() {
                       alt={place.title}
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                     />
-                    <span className="absolute left-3.5 top-3.5 rounded-full bg-white/95 px-3 py-1 font-subtitle text-[10px] font-black uppercase tracking-wider text-[#37474F] shadow-md backdrop-blur">
-                      {place.tag}
-                    </span>
+
+                    {/* Tag de la ruta */}
+                    <div className="absolute left-3.5 top-3.5 flex flex-col gap-1 items-start">
+                      <span className="rounded-full bg-white/95 px-3 py-1 font-subtitle text-[10px] font-black uppercase tracking-wider text-[#37474F] shadow-md backdrop-blur">
+                        {place.tag}
+                      </span>
+                      {place.featured && (
+                        <span className="rounded-full bg-[#F7931E] px-2.5 py-0.5 font-subtitle text-[9px] font-black uppercase tracking-wider text-white shadow-md flex items-center gap-1">
+                          ⭐ Destacado
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Corazón de favoritos para turistas */}
                     <button
                       onClick={() => toggleFavorite(place.title)}
                       className={`absolute right-3.5 top-3.5 grid h-9 w-9 place-items-center rounded-full shadow-md backdrop-blur transition ${
@@ -786,6 +1069,43 @@ export default function App() {
                     >
                       <Icon name="heart" size={18} filled={isFavorite} />
                     </button>
+
+                    {/* CONTROLES CREATIVOS DE ADMINISTRADOR SUPERPUESTOS */}
+                    {isEffectiveAdmin && (
+                      <div className="absolute bottom-2 inset-x-2 rounded-xl bg-[#0F172A]/90 backdrop-blur-md p-1.5 flex items-center justify-between gap-1 shadow-lg border border-white/20 animate-in fade-in">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleFeatured(place.id)}
+                          className={`flex-1 flex items-center justify-center gap-1 rounded-lg py-1 px-1.5 text-[10px] font-subtitle font-bold transition ${
+                            place.featured
+                              ? "bg-[#F7931E] text-white"
+                              : "bg-white/10 text-white hover:bg-white/20"
+                          }`}
+                          title="Alternar selección como Destacado"
+                        >
+                          <span>{place.featured ? "⭐ Destacado" : "☆ Destacar"}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => openEditPlaceModal(place)}
+                          className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white py-1 px-1.5 text-[10px] font-subtitle font-bold transition"
+                          title="Editar información del lugar"
+                        >
+                          <Icon name="edit" size={12} />
+                          <span>Editar</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePlace(place.id, place.title)}
+                          className="h-6 w-6 rounded-lg bg-red-600 hover:bg-red-500 text-white grid place-items-center text-xs transition"
+                          title="Eliminar este destino"
+                        >
+                          <Icon name="trash" size={13} />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="p-5 flex-1 flex flex-col justify-between">
@@ -808,10 +1128,7 @@ export default function App() {
                         <Icon name="clock" size={14} /> {place.time}
                       </span>
                       <button
-                        onClick={() => {
-                          setNotice(`Abriendo experiencia: ${place.title}`);
-                          window.setTimeout(() => setNotice(""), 3500);
-                        }}
+                        onClick={() => notify(`Abriendo experiencia: ${place.title}`)}
                         className="font-subtitle font-bold text-[#D81B60] hover:text-[#7B1FA2] transition flex items-center gap-1"
                       >
                         Ver más →
@@ -824,20 +1141,17 @@ export default function App() {
           </div>
         </section>
 
-        {/* CULTURAL QUOTE CARD (From proposal mockup in Allura font) */}
+        {/* CULTURAL QUOTE CARD */}
         <section className="mx-auto max-w-[1240px] px-5 pb-16 lg:px-8">
           <div className="rounded-[32px] bg-gradient-to-r from-[#FFF8EE] via-[#FFF1F2] to-[#F0FDF4] p-8 sm:p-14 text-center border border-[#FDE68A] shadow-md relative overflow-hidden">
-            {/* Mountain line art icon */}
             <div className="flex justify-center text-[#6D4C41] mb-2">
               <MountainLogo className="w-10 h-10 text-[#37474F]" />
             </div>
 
-            {/* Quote in Allura font */}
             <p className="font-script text-3xl sm:text-5xl lg:text-6xl text-[#37474F] font-normal leading-tight my-4">
               “Cochabamba, siempre una buena idea”
             </p>
 
-            {/* Diamond emblem underneath */}
             <div className="flex justify-center items-center gap-2 mt-4">
               <span className="h-px w-12 bg-[#D81B60]/30" />
               <AndeanDiamond size={22} />
@@ -913,7 +1227,7 @@ export default function App() {
               </h2>
             </div>
             <button
-              onClick={() => setNotice("¡Gracias por apoyar el turismo comunitario en Cochabamba!")}
+              onClick={() => notify("¡Gracias por apoyar el turismo comunitario en Cochabamba!")}
               className="shrink-0 rounded-full bg-white px-7 py-3.5 font-subtitle text-sm font-bold text-[#D81B60] shadow-xl transition hover:bg-[#FAF7F2] hover:scale-105"
             >
               Conoce nuestra comunidad →
@@ -922,12 +1236,11 @@ export default function App() {
         </section>
       </main>
 
-      {/* FOOTER matching proposal image */}
+      {/* FOOTER */}
       <footer className="bg-[#1E293B] text-white/80">
         <div className="aguayo-strip h-1.5" />
         <div className="mx-auto max-w-[1240px] px-5 py-12 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8 pb-8 border-b border-white/10">
-            {/* Logo */}
             <div className="flex items-center gap-3">
               <MountainLogo className="w-8 h-8 text-[#F4C430]" />
               <div className="flex flex-col">
@@ -936,12 +1249,10 @@ export default function App() {
               </div>
             </div>
 
-            {/* Cultural slogan */}
             <p className="font-script text-2xl text-[#F4C430] text-center">
               Tradición que se siente en cada rincón.
             </p>
 
-            {/* Social links */}
             <div className="flex items-center gap-4 text-white/90">
               <a href="https://instagram.com" target="_blank" rel="noreferrer" aria-label="Instagram" className="p-2 rounded-full hover:bg-white/10 hover:text-[#D81B60] transition">
                 <Icon name="instagram" size={20} />
@@ -965,9 +1276,51 @@ export default function App() {
           </div>
         </div>
 
-        {/* Final Aguayo bottom border as in the mockup */}
         <div className="aguayo-strip h-2.5 w-full" />
       </footer>
+
+      {/* Floating Admin Dock / Bar for Administrators */}
+      <AdminBar
+        places={places}
+        onOpenNewPlace={openNewPlaceModal}
+        onOpenUsers={() => setIsAdminUsersModalOpen(true)}
+        onOpenAnnouncement={() => setIsAdminAnnouncementModalOpen(true)}
+      />
+
+      {/* Auth Modal (Login & Registration) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        defaultTab={authModalTab}
+        onClose={() => setIsAuthModalOpen(false)}
+        onNotify={notify}
+      />
+
+      {/* Admin Modals */}
+      <AdminPlaceModal
+        isOpen={isAdminPlaceModalOpen}
+        editingPlace={editingPlace}
+        onSave={handleSavePlace}
+        onClose={() => {
+          setIsAdminPlaceModalOpen(false);
+          setEditingPlace(null);
+        }}
+      />
+
+      <AdminUsersModal
+        isOpen={isAdminUsersModalOpen}
+        onClose={() => setIsAdminUsersModalOpen(false)}
+        onNotify={notify}
+      />
+
+      <AdminAnnouncementModal
+        isOpen={isAdminAnnouncementModalOpen}
+        announcement={announcement}
+        onSave={(updatedAnn) => {
+          setAnnouncement(updatedAnn);
+          notify("Comunicado oficial actualizado.");
+        }}
+        onClose={() => setIsAdminAnnouncementModalOpen(false)}
+      />
 
       {/* Interactive Modal Calendar */}
       <CalendarPicker
@@ -990,5 +1343,13 @@ export default function App() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <MainApp />
+    </AuthProvider>
   );
 }
