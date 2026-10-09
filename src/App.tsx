@@ -23,6 +23,7 @@ import natureGreenImage from "./assets/naturaleza-verde.jpg";
 import traditionImage from "./assets/tradicion.jpg";
 import tunariImage from "./assets/tunari.jpg";
 import gatoExploradorImage from "./assets/gato-explorador.png";
+import saltenaImage from "./assets/gastronomia-saltena.jpg";
 
 type IconName =
   | "arrow"
@@ -248,6 +249,19 @@ function CategoryPage({
   toggleFavorite: (title: string) => void;
 }) {
   const data = categoryPages[category];
+  const [showAlternateHero, setShowAlternateHero] = useState(false);
+
+  useEffect(() => {
+    if (category === "gastronomia") {
+      setShowAlternateHero(false);
+      const timer = setTimeout(() => {
+        setShowAlternateHero(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowAlternateHero(false);
+    }
+  }, [category]);
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#37474F]">
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur shadow-sm border-b border-[#E2D9CC]">
@@ -280,8 +294,30 @@ function CategoryPage({
       </header>
 
       <main>
-        <section className="relative min-h-[460px] overflow-hidden text-white">
-          <img src={data.hero} alt={data.title} className="absolute inset-0 h-full w-full object-cover" />
+        <section className="relative min-h-[460px] overflow-hidden text-white bg-[#1E293B]">
+          {/* Imagen actual que se muestra al presionar gastronomía */}
+          <img
+            src={data.hero}
+            alt={data.title}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
+              category === "gastronomia" && showAlternateHero ? "opacity-0 pointer-events-none" : "opacity-100"
+            }`}
+          />
+
+          {/* Nueva imagen que aparece 3 segundos después */}
+          {category === "gastronomia" && (
+            <div
+              className={`absolute inset-0 h-full w-full transition-opacity duration-1000 ${
+                showAlternateHero ? "opacity-100" : "opacity-0 pointer-events-none"
+              }`}
+            >
+              <img
+                src={saltenaImage}
+                alt="Tigrillo disfrutando Salteña Boliviana"
+                className="h-full w-full object-cover object-right md:object-center"
+              />
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-r from-[#1E293B]/95 via-[#1E293B]/70 to-transparent" />
           <div className="aguayo-grid absolute right-0 top-0 hidden h-full w-[36%] opacity-60 lg:grid" aria-hidden="true" />
           <div className="relative mx-auto flex min-h-[460px] max-w-[1240px] items-center px-5 py-16 lg:px-8">
@@ -301,6 +337,17 @@ function CategoryPage({
               </div>
             </div>
           </div>
+
+          {/* Indicador de cambio a los 3 segundos en Gastronomía */}
+          {category === "gastronomia" && (
+            <div className="absolute bottom-5 right-6 z-20 hidden sm:flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3.5 py-1.5 backdrop-blur transition">
+              <span className={`h-2.5 w-2.5 rounded-full transition-all ${!showAlternateHero ? "bg-[#F4C430] scale-125" : "bg-white/40"}`} />
+              <span className={`h-2.5 w-2.5 rounded-full transition-all ${showAlternateHero ? "bg-[#F4C430] scale-125" : "bg-white/40"}`} />
+              <span className="font-subtitle text-xs font-bold text-white/90">
+                {showAlternateHero ? "🐾 Tigrillo con Salteña Boliviana" : "Sabores de la Llajta (cambia en 3s...)"}
+              </span>
+            </div>
+          )}
         </section>
 
         <section className="mx-auto max-w-[1240px] px-5 py-16 lg:px-8">
