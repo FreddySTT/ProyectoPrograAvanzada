@@ -22,6 +22,7 @@ import natureValleyImage from "./assets/naturaleza-valle.jpg";
 import natureGreenImage from "./assets/naturaleza-verde.jpg";
 import traditionImage from "./assets/tradicion.jpg";
 import tunariImage from "./assets/tunari.jpg";
+import gatoExploradorImage from "./assets/gato-explorador.png";
 
 type IconName =
   | "arrow"
@@ -565,8 +566,8 @@ function MainApp() {
         <div className="mx-auto flex h-18 max-w-[1240px] items-center justify-between px-5 lg:px-8">
           {/* Logo matching proposal */}
           <a href="#" className="flex items-center gap-3 group" aria-label="Cochabamba Turismo">
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-[#FAF7F2] border border-[#E2D9CC] shadow-sm transition group-hover:scale-105">
-              <AndeanDiamond size={22} />
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-[#FAF7F2] border border-[#E2D9CC] shadow-sm transition group-hover:scale-105 overflow-hidden p-0.5">
+              <img src={gatoExploradorImage} alt="Gato Explorador - Tigrillo Boliviano" className="h-full w-full object-contain" />
             </span>
             <div className="flex flex-col">
               <span className="font-subtitle text-xl font-extrabold text-[#37474F] tracking-tight leading-tight">
