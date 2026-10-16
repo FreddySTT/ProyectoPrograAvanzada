@@ -12,6 +12,7 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
   const { users, currentUser, adminCreateUser, adminUpdateUserRole, adminDeleteUser } = useAuth();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [loadingAction, setLoadingAction] = useState(false);
 
   // Create user form
   const [name, setName] = useState("");
@@ -40,28 +41,33 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
 
   if (!isOpen) return null;
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
 
-    const res = adminCreateUser({
-      name,
-      username,
-      email,
-      password,
-      role,
-      avatar,
-    });
+    setLoadingAction(true);
+    try {
+      const res = await adminCreateUser({
+        name,
+        username,
+        email,
+        password,
+        role,
+        avatar,
+      });
 
-    if (res.success) {
-      if (onNotify) onNotify(res.message);
-      setName("");
-      setUsername("");
-      setEmail("");
-      setPassword("");
-      setShowCreateForm(false);
-    } else {
-      setFormError(res.message);
+      if (res.success) {
+        if (onNotify) onNotify(res.message);
+        setName("");
+        setUsername("");
+        setEmail("");
+        setPassword("");
+        setShowCreateForm(false);
+      } else {
+        setFormError(res.message);
+      }
+    } finally {
+      setLoadingAction(false);
     }
   };
 
@@ -93,115 +99,121 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
             <div className="flex items-center gap-2">
               <span className="text-xl">👥</span>
               <h2 className="font-subtitle text-xl font-extrabold text-[#37474F]">
-                Gestión de Usuarios de la Plataforma
+                Gestión de Usuarios en Cloud Firestore
               </h2>
             </div>
             <p className="mt-1 text-xs text-[#6D4C41]">
-              Crea usuarios, asigna roles de Administrador o Turista Normal y supervisa el acceso.
+              Crea usuarios, asigna roles de Administrador o Turista Normal y supervisa el acceso con seguridad.
             </p>
           </div>
           <button
             onClick={onClose}
             className="grid h-8 w-8 place-items-center rounded-full bg-white text-[#6D4C41] hover:bg-[#D81B60] hover:text-white transition shadow-sm"
+            aria-label="Cerrar modal"
           >
             ✕
           </button>
         </div>
 
-        {/* Toolbar */}
-        <div className="p-4 border-b border-[#E8E3D8] bg-white flex flex-col sm:flex-row items-center justify-between gap-3">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="🔍 Buscar por nombre, usuario o email..."
-            className="w-full sm:w-72 rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-2 text-xs text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none"
-          />
+        {/* Search bar & Create button */}
+        <div className="p-4 bg-[#FAF7F2] border-b border-[#E8E3D8] flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+          <div className="relative flex-1">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-[#6D4C41]">
+              🔍
+            </span>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por nombre, usuario o correo..."
+              className="w-full rounded-xl border border-[#E2D9CC] bg-white pl-9 pr-3.5 py-2 text-xs text-[#37474F] focus:border-[#D81B60] focus:outline-none"
+            />
+          </div>
 
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#D81B60] px-4 py-2 text-xs font-subtitle font-bold text-white shadow-sm hover:bg-[#b0144c] transition"
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-[#D81B60] px-4 py-2 text-xs font-subtitle font-extrabold text-white shadow hover:bg-[#b0144c] transition"
           >
-            <span>{showCreateForm ? "✕ Cancelar Formulario" : "➕ Crear Nuevo Usuario"}</span>
+            <span>{showCreateForm ? "✕ Cancelar" : "➕ Crear Nuevo Usuario"}</span>
           </button>
         </div>
 
-        {/* Create User Collapsible Form */}
+        {/* Create User Form Drawer */}
         {showCreateForm && (
-          <form onSubmit={handleCreateSubmit} className="p-5 bg-[#FFF8EE] border-b border-[#FDE68A] space-y-3">
-            <h3 className="font-subtitle text-sm font-extrabold text-[#B45309]">
-              Formulario de Creación de Usuario (Admin)
-            </h3>
+          <form
+            onSubmit={handleCreateSubmit}
+            className="p-5 bg-[#FFF8EE] border-b border-[#FDE68A] space-y-3 animate-in slide-in-from-top-2 duration-150"
+          >
+            <p className="font-subtitle text-xs font-black uppercase text-[#B45309]">
+              Nuevo Usuario para la Base de Datos
+            </p>
 
             {formError && (
-              <div className="rounded-lg bg-[#FFF1F2] border border-[#FECDD3] p-2 text-xs font-bold text-[#BE123C]">
+              <div className="rounded-lg bg-[#FFF1F2] border border-[#FECDD3] p-2 text-xs text-[#BE123C] font-bold">
                 ⚠️ {formError}
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">Nombre Completo *</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="ej. Ana Gómez"
-                  className="w-full rounded-lg border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs focus:border-[#D81B60] focus:outline-none"
+                  placeholder="ej. Laura Sánchez"
                   required
+                  className="w-full rounded-lg border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs focus:border-[#D81B60] focus:outline-none"
                 />
               </div>
+
               <div>
                 <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">Nombre de Usuario *</label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="ej. anagomez"
-                  className="w-full rounded-lg border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs focus:border-[#D81B60] focus:outline-none"
+                  placeholder="ej. laura_guia"
                   required
+                  className="w-full rounded-lg border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs focus:border-[#D81B60] focus:outline-none"
                 />
               </div>
+
               <div>
                 <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">Correo Electrónico</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="ana@correo.com"
+                  placeholder="laura@cochabamba.bo"
                   className="w-full rounded-lg border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs focus:border-[#D81B60] focus:outline-none"
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">Contraseña *</label>
+                <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">Contraseña Inicial (mínimo 6) *</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-lg border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs focus:border-[#D81B60] focus:outline-none"
                   required
+                  className="w-full rounded-lg border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs focus:border-[#D81B60] focus:outline-none"
                 />
               </div>
+
               <div>
-                <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">Rol de Usuario</label>
+                <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">Rol de Acceso</label>
                 <select
                   value={role}
-                  onChange={(e) => {
-                    const r = e.target.value as Role;
-                    setRole(r);
-                    if (r === "admin") setAvatar("👑");
-                    else setAvatar("🎒");
-                  }}
-                  className="w-full rounded-lg border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs font-subtitle font-bold focus:border-[#D81B60] focus:outline-none"
+                  onChange={(e) => setRole(e.target.value as Role)}
+                  className="w-full rounded-lg border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs focus:border-[#D81B60] focus:outline-none"
                 >
                   <option value="normal">Normal (Turista / Visitante)</option>
                   <option value="admin">Administrador (Control total)</option>
                 </select>
               </div>
+
               <div>
                 <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">Avatar</label>
                 <select
@@ -223,9 +235,10 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
             <div className="flex justify-end gap-2 pt-1">
               <button
                 type="submit"
-                className="rounded-lg bg-[#4CAF50] px-4 py-1.5 text-xs font-subtitle font-extrabold text-white shadow hover:bg-[#388E3C] transition"
+                disabled={loadingAction}
+                className="rounded-lg bg-[#4CAF50] px-4 py-1.5 text-xs font-subtitle font-extrabold text-white shadow hover:bg-[#388E3C] transition disabled:opacity-50"
               >
-                Guardar Usuario en el Sistema
+                {loadingAction ? "Guardando..." : "Guardar Usuario en el Sistema"}
               </button>
             </div>
           </form>
@@ -239,12 +252,12 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
             </p>
           ) : (
             filteredUsers.map((u) => {
-              const isMe = currentUser?.id === u.id;
+              const isMe = currentUser?.id === u.id || (currentUser?.uid && currentUser?.uid === u.uid);
               const isAdmin = u.role === "admin";
 
               return (
                 <div
-                  key={u.id}
+                  key={u.id || u.uid}
                   className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF7F2] px-3 rounded-xl transition"
                 >
                   <div className="flex items-center gap-3">
@@ -280,9 +293,9 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
                   <div className="flex items-center gap-2 self-end sm:self-center">
                     {/* Switch role button */}
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         const newRole = isAdmin ? "normal" : "admin";
-                        adminUpdateUserRole(u.id, newRole);
+                        await adminUpdateUserRole(u.id, newRole);
                         if (onNotify) {
                           onNotify(`Rol de @${u.username} actualizado a ${newRole === "admin" ? "Administrador" : "Turista Normal"}`);
                         }
@@ -296,9 +309,9 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
                     {/* Delete button (cannot delete yourself) */}
                     {!isMe && (
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           if (confirm(`¿Eliminar al usuario @${u.username}?`)) {
-                            const res = adminDeleteUser(u.id);
+                            const res = await adminDeleteUser(u.id);
                             if (onNotify) onNotify(res.message);
                           }
                         }}

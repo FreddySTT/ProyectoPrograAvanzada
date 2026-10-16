@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if the authenticated user is an administrator
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // ========================
+    // USERS COLLECTION
+    // ========================
+    match /users/{userId} {
+      // Any authenticated user can read profiles; visitors can read public avatars
+      allow read: if true;
+      
+      // Users can create and edit their own profile, but CANNOT self-assign 'admin' role
+      allow create: if isAuthenticated() && 
+        request.auth.uid == userId && 
+        (request.resource.data.role == 'normal' || isAdmin());
+        
+      allow update: if isAuthenticated() && 
+        (isAdmin() || (request.auth.uid == userId && request.resource.data.role == resource.data.role));
+        
+      // Only admins can delete user documents
+      allow delete: if isAdmin() && request.auth.uid != userId;
+    }
+
+    // ========================
+    // PLACES (DESTINOS TURÍSTICOS)
+    // ========================
+    match /places/{placeId} {
+      // Public read access for tourists and visitors
+      allow read: if true;
+      
+      // Only administrators can create, update, or delete destinations
+      allow write: if isAdmin();
+    }
+
+    // ========================
+    // ANNOUNCEMENTS (COMUNICADOS)
+    // ========================
+    match /announcements/{announcementId} {
+      // Public read access for the official notification banner
+      allow read: if true;
+      
+      // Only administrators can modify official announcements
+      allow write: if isAdmin();
+    }
+
+    // ========================
+    // SECURITY AUDIT LOGS
+    // ========================
+    match /security_logs/{logId} {
+      // Write logs for security tracking
+      allow create: if true;
+      
+      // Only administrators can inspect security audit logs
+      allow read: if isAdmin();
+      
+      // Logs are immutable (cannot be edited or deleted by anyone)
+      allow update, delete: if false;
+    }
+  }
+}

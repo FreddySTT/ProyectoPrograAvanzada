@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import type { Role } from "../types/auth";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -9,23 +8,28 @@ interface AuthModalProps {
   onNotify?: (msg: string) => void;
 }
 
-const AVATAR_OPTIONS = ["🎒", "🌸", "🏔️", "🦅", "☀️", "🚲", "🥟", "👑"];
+const AVATAR_OPTIONS = ["🎒", "🌸", "🏔️", "🦅", "☀️", "🚲", "🥟"];
 
-export function AuthModal({ isOpen, onClose, defaultTab = "login", onNotify }: AuthModalProps) {
-  const { login, register } = useAuth();
+export function AuthModal({
+  isOpen,
+  onClose,
+  defaultTab = "login",
+  onNotify,
+}: AuthModalProps) {
+  const { login, register, isLockedOut, lockoutRemaining } = useAuth();
   const [tab, setTab] = useState<"login" | "register">(defaultTab);
 
   // Login form state
   const [loginUser, setLoginUser] = useState("");
   const [loginPass, setLoginPass] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   // Register form state
   const [regName, setRegName] = useState("");
   const [regUsername, setRegUsername] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
-  const [regRole, setRegRole] = useState<Role>("normal");
   const [regAvatar, setRegAvatar] = useState("🎒");
   const [regError, setRegError] = useState("");
 
@@ -46,7 +50,7 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login", onNotify }: A
 
   if (!isOpen) return null;
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
 
@@ -55,16 +59,21 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login", onNotify }: A
       return;
     }
 
-    const res = login(loginUser, loginPass);
-    if (res.success) {
-      if (onNotify) onNotify(res.message);
-      onClose();
-    } else {
-      setLoginError(res.message);
+    setLoading(true);
+    try {
+      const res = await login(loginUser, loginPass);
+      if (res.success) {
+        if (onNotify) onNotify(res.message);
+        onClose();
+      } else {
+        setLoginError(res.message);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegError("");
 
@@ -73,37 +82,29 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login", onNotify }: A
       return;
     }
 
-    if (regPassword.length < 3) {
-      setRegError("La contraseña debe tener al menos 3 caracteres.");
+    if (regPassword.length < 6) {
+      setRegError("Por seguridad, la contraseña debe tener al menos 6 caracteres.");
       return;
     }
 
-    const res = register({
-      name: regName,
-      username: regUsername,
-      email: regEmail,
-      password: regPassword,
-      role: regRole,
-      avatar: regAvatar,
-    });
+    setLoading(true);
+    try {
+      const res = await register({
+        name: regName,
+        username: regUsername,
+        email: regEmail,
+        password: regPassword,
+        avatar: regAvatar,
+      });
 
-    if (res.success) {
-      if (onNotify) onNotify(res.message);
-      onClose();
-    } else {
-      setRegError(res.message);
-    }
-  };
-
-  const quickLogin = (u: string, p: string) => {
-    setLoginUser(u);
-    setLoginPass(p);
-    const res = login(u, p);
-    if (res.success) {
-      if (onNotify) onNotify(res.message);
-      onClose();
-    } else {
-      setLoginError(res.message);
+      if (res.success) {
+        if (onNotify) onNotify(res.message);
+        onClose();
+      } else {
+        setRegError(res.message);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -126,13 +127,13 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login", onNotify }: A
             <div className="flex items-center gap-2">
               <span className="text-xl">✨</span>
               <h2 className="font-subtitle text-xl font-extrabold text-[#37474F]">
-                {tab === "login" ? "Acceso a Riqsi Rutas" : "Crear Nueva Cuenta"}
+                {tab === "login" ? "Acceso a Riqsi Rutas" : "Crear Cuenta de Viajero"}
               </h2>
             </div>
             <p className="mt-1 text-xs text-[#6D4C41]">
               {tab === "login"
                 ? "Inicia sesión para personalizar tus rutas en Cochabamba"
-                : "Únete a la comunidad de viajeros y creadores de la Llajta"}
+                : "Únete a la comunidad de viajeros y explora la Llajta"}
             </p>
           </div>
           <button
@@ -172,33 +173,18 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login", onNotify }: A
 
         {/* Modal Body */}
         <div className="overflow-y-auto p-6 space-y-5">
-          {/* Quick Demo Access Bar */}
-          <div className="rounded-2xl bg-[#FFF8EE] border border-[#FDE68A] p-3.5">
-            <p className="font-subtitle text-[11px] font-black uppercase tracking-wider text-[#B45309] mb-2 flex items-center gap-1.5">
-              <span>⚡ Acceso Rápido para Pruebas:</span>
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => quickLogin("admin", "admin")}
-                className="flex items-center justify-center gap-1.5 rounded-xl bg-[#1E293B] text-white px-2.5 py-2 text-xs font-subtitle font-bold hover:bg-[#334155] transition shadow-sm"
-                title="Usuario: admin | Contraseña: admin"
-              >
-                <span>👑 Administrador</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => quickLogin("turista", "123")}
-                className="flex items-center justify-center gap-1.5 rounded-xl bg-[#D81B60] text-white px-2.5 py-2 text-xs font-subtitle font-bold hover:bg-[#b0144c] transition shadow-sm"
-                title="Usuario: turista | Contraseña: 123"
-              >
-                <span>🎒 Turista Normal</span>
-              </button>
+          {/* Lockout Notice */}
+          {isLockedOut && (
+            <div className="rounded-2xl bg-red-50 border border-red-200 p-4 text-xs text-red-800">
+              <div className="flex items-center gap-2 font-bold mb-1">
+                <span>🛡️ Acceso bloqueado temporalmente</span>
+              </div>
+              <p>
+                Por protección ante múltiples intentos fallidos, el acceso está restringido.
+                Podrás volver a intentar en: <strong className="font-mono text-red-900">{lockoutRemaining} segundos</strong>.
+              </p>
             </div>
-            <p className="mt-2 text-[10px] text-[#78350F] text-center">
-              (Admin tiene acceso a agregar y seleccionar rutas; Turista ve la página limpia)
-            </p>
-          </div>
+          )}
 
           {tab === "login" ? (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
@@ -216,8 +202,9 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login", onNotify }: A
                   type="text"
                   value={loginUser}
                   onChange={(e) => setLoginUser(e.target.value)}
-                  placeholder="ej. admin o viajero"
-                  className="w-full rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-2.5 text-sm text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none"
+                  placeholder="ej. viajero@gmail.com o usuario"
+                  disabled={isLockedOut || loading}
+                  className="w-full rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-2.5 text-sm text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none disabled:opacity-50"
                   autoFocus
                 />
               </div>
@@ -231,15 +218,24 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login", onNotify }: A
                   value={loginPass}
                   onChange={(e) => setLoginPass(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-2.5 text-sm text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none"
+                  disabled={isLockedOut || loading}
+                  className="w-full rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-2.5 text-sm text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none disabled:opacity-50"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full rounded-full bg-[#D81B60] py-3 text-sm font-subtitle font-extrabold text-white shadow-lg shadow-[#D81B60]/30 hover:bg-[#b0144c] hover:scale-[1.02] active:scale-[0.98] transition"
+                disabled={isLockedOut || loading}
+                className="w-full rounded-full bg-[#D81B60] py-3 text-sm font-subtitle font-extrabold text-white shadow-lg shadow-[#D81B60]/30 hover:bg-[#b0144c] hover:scale-[1.01] active:scale-[0.99] transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Ingresar a Riqsi Rutas
+                {loading ? (
+                  <>
+                    <span className="inline-block animate-spin">⏳</span>
+                    <span>Verificando...</span>
+                  </>
+                ) : (
+                  <span>Ingresar a Riqsi Rutas</span>
+                )}
               </button>
             </form>
           ) : (
@@ -252,41 +248,41 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login", onNotify }: A
 
               <div>
                 <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1">
-                  Nombre Completo *
+                  Nombre Completo
                 </label>
                 <input
                   type="text"
                   value={regName}
                   onChange={(e) => setRegName(e.target.value)}
-                  placeholder="ej. María Morales"
+                  placeholder="ej. Mateo Morales"
                   className="w-full rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-2 text-sm text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none"
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1">
-                    Nombre de Usuario *
+                    Usuario
                   </label>
                   <input
                     type="text"
                     value={regUsername}
                     onChange={(e) => setRegUsername(e.target.value)}
-                    placeholder="ej. maria26"
+                    placeholder="ej. mateo_viajes"
                     className="w-full rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-2 text-sm text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1">
-                    Correo Electrónico
+                    Correo
                   </label>
                   <input
                     type="email"
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
-                    placeholder="maria@ejemplo.com"
+                    placeholder="mateo@gmail.com"
                     className="w-full rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-2 text-sm text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none"
                   />
                 </div>
@@ -294,62 +290,22 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login", onNotify }: A
 
               <div>
                 <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1">
-                  Contraseña *
+                  Contraseña (mínimo 6 caracteres)
                 </label>
                 <input
                   type="password"
                   value={regPassword}
                   onChange={(e) => setRegPassword(e.target.value)}
-                  placeholder="Mínimo 3 caracteres"
+                  placeholder="Mínimo 6 caracteres"
                   className="w-full rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-2 text-sm text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none"
                   required
                 />
               </div>
 
-              {/* Selector de tipo de usuario */}
-              <div>
-                <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1.5">
-                  Tipo de Usuario (Rol)
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRegRole("normal")}
-                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition ${
-                      regRole === "normal"
-                        ? "border-[#D81B60] bg-[#FFF1F2] text-[#D81B60] font-bold"
-                        : "border-[#E2D9CC] bg-white text-[#6D4C41]"
-                    }`}
-                  >
-                    <span className="text-lg">🎒</span>
-                    <div>
-                      <p className="text-xs font-subtitle">Normal / Turista</p>
-                      <p className="text-[10px] text-[#6D4C41] font-normal">Visita y explora</p>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setRegRole("admin")}
-                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition ${
-                      regRole === "admin"
-                        ? "border-[#F4C430] bg-[#1E293B] text-[#F4C430] font-bold"
-                        : "border-[#E2D9CC] bg-white text-[#6D4C41]"
-                    }`}
-                  >
-                    <span className="text-lg">👑</span>
-                    <div>
-                      <p className="text-xs font-subtitle">Administrador</p>
-                      <p className="text-[10px] text-gray-400 font-normal">Edita y aumenta</p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
               {/* Selector de Avatar */}
               <div>
                 <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1">
-                  Elige tu Avatar
+                  Elige tu Avatar de Viajero
                 </label>
                 <div className="flex gap-2 justify-between">
                   {AVATAR_OPTIONS.map((av) => (
@@ -369,11 +325,16 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login", onNotify }: A
                 </div>
               </div>
 
+              <div className="rounded-xl bg-[#FAF7F2] border border-[#E2D9CC] p-3 text-[11px] text-[#6D4C41]">
+                🔒 <strong>Seguridad activa:</strong> Tu cuenta se crea con perfil de Turista seguro. Las contraseñas se gestionan de forma cifrada.
+              </div>
+
               <button
                 type="submit"
-                className="w-full mt-2 rounded-full bg-[#D81B60] py-3 text-sm font-subtitle font-extrabold text-white shadow-lg shadow-[#D81B60]/30 hover:bg-[#b0144c] hover:scale-[1.02] active:scale-[0.98] transition"
+                disabled={loading}
+                className="w-full mt-2 rounded-full bg-[#D81B60] py-3 text-sm font-subtitle font-extrabold text-white shadow-lg shadow-[#D81B60]/30 hover:bg-[#b0144c] hover:scale-[1.01] active:scale-[0.99] transition disabled:opacity-50"
               >
-                Registrar y Comenzar
+                {loading ? "Creando cuenta segura..." : "Registrar y Comenzar"}
               </button>
             </form>
           )}

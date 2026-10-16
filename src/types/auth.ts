@@ -2,6 +2,7 @@ export type Role = "normal" | "admin";
 
 export interface User {
   id: string;
+  uid?: string;
   username: string;
   name: string;
   email: string;
@@ -9,6 +10,7 @@ export interface User {
   role: Role;
   avatar: string;
   createdAt: string;
+  lastLogin?: string;
 }
 
 export interface PlaceItem {
@@ -22,6 +24,9 @@ export interface PlaceItem {
   time: string;
   featured?: boolean;
   visible?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
 }
 
 export interface Announcement {
@@ -31,4 +36,14 @@ export interface Announcement {
   linkText?: string;
   linkUrl?: string;
   updatedAt: string;
+}
+
+export interface SecurityLog {
+  id: string;
+  timestamp: string;
+  event: "LOGIN_SUCCESS" | "LOGIN_FAILED" | "ADMIN_PORTAL_ACCESS" | "ADMIN_ELEVATION" | "ROLE_UPDATED" | "LOGOUT" | "BLOCKED_ATTEMPT";
+  userEmail: string;
+  role?: string;
+  status: "OK" | "WARNING" | "BLOCKED";
+  details: string;
 }

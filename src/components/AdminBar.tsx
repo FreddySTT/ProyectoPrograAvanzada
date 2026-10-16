@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import type { PlaceItem } from "../types/auth";
+import { isFirebaseLiveConfigured } from "../firebase/config";
 
 interface AdminBarProps {
   places: PlaceItem[];
   onOpenNewPlace: () => void;
   onOpenUsers: () => void;
   onOpenAnnouncement: () => void;
+  onOpenSecurityPortal?: () => void;
 }
 
 export function AdminBar({
@@ -14,9 +16,11 @@ export function AdminBar({
   onOpenNewPlace,
   onOpenUsers,
   onOpenAnnouncement,
+  onOpenSecurityPortal,
 }: AdminBarProps) {
   const { currentUser, previewAsNormal, setPreviewAsNormal, logout, users } = useAuth();
   const [minimized, setMinimized] = useState(false);
+  const isLive = isFirebaseLiveConfigured();
 
   if (!currentUser || currentUser.role !== "admin") return null;
 
@@ -46,6 +50,18 @@ export function AdminBar({
                 · {currentUser.name}
               </span>
             </div>
+            {/* Firebase live indicator */}
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-mono font-bold ${
+                isLive
+                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                  : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+              }`}
+              title={isLive ? "Conectado a Firebase Cloud Firestore" : "Modo Local Seguro"}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
+              {isLive ? "Cloud Firestore" : "Modo Local"}
+            </span>
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -112,8 +128,18 @@ export function AdminBar({
                 className="flex items-center justify-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/20 px-3 py-2 text-xs font-subtitle font-bold text-white transition border border-white/15"
                 title="Editar comunicado oficial en la página"
               >
-                <span>📢 Aviso Web</span>
+                <span>📢 Aviso</span>
               </button>
+
+              {onOpenSecurityPortal && (
+                <button
+                  onClick={onOpenSecurityPortal}
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/20 px-3 py-2 text-xs font-subtitle font-bold text-[#F4C430] transition border border-[#F4C430]/30"
+                  title="Configuración de Firebase y Auditoría de Seguridad"
+                >
+                  <span>🛡️ Seguridad</span>
+                </button>
+              )}
 
               <button
                 onClick={logout}

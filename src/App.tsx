@@ -6,7 +6,15 @@ import { AdminBar } from "./components/AdminBar";
 import { AdminPlaceModal } from "./components/AdminPlaceModal";
 import { AdminUsersModal } from "./components/AdminUsersModal";
 import { AdminAnnouncementModal } from "./components/AdminAnnouncementModal";
+import { AdminPortalModal } from "./components/AdminPortalModal";
 import { INITIAL_PLACES, INITIAL_ANNOUNCEMENT } from "./data/initialData";
+import {
+  subscribeToPlaces,
+  savePlace,
+  deletePlace,
+  subscribeToAnnouncement,
+  saveAnnouncement,
+} from "./firebase/services";
 import type { PlaceItem, Announcement } from "./types/auth";
 
 import heroImage from "./assets/cochabamba-hero.jpg";
@@ -410,6 +418,7 @@ function MainApp() {
   // Modals state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<"login" | "register">("login");
+  const [isAdminPortalModalOpen, setIsAdminPortalModalOpen] = useState(false);
   const [isAdminPlaceModalOpen, setIsAdminPlaceModalOpen] = useState(false);
   const [editingPlace, setEditingPlace] = useState<PlaceItem | null>(null);
   const [isAdminUsersModalOpen, setIsAdminUsersModalOpen] = useState(false);
@@ -425,23 +434,49 @@ function MainApp() {
   });
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-  // Sync places to localStorage
+  // Subscribe to real-time Cloud Firestore updates for Places and Announcements
   useEffect(() => {
-    try {
-      localStorage.setItem("riqsi_places_v1", JSON.stringify(places));
-    } catch (e) {
-      console.error("Error saving places", e);
-    }
-  }, [places]);
+    const unsubPlaces = subscribeToPlaces((cloudPlaces) => {
+      if (cloudPlaces && cloudPlaces.length > 0) {
+        setPlaces(cloudPlaces);
+      }
+    });
 
-  // Sync announcement to localStorage
+    const unsubAnn = subscribeToAnnouncement((cloudAnn) => {
+      if (cloudAnn) {
+        setAnnouncement(cloudAnn);
+      }
+    });
+
+    return () => {
+      unsubPlaces();
+      unsubAnn();
+    };
+  }, []);
+
+  // Listen to hash routes (#portal-admin or #admin) and Ctrl+Shift+A shortcut
   useEffect(() => {
-    try {
-      localStorage.setItem("riqsi_announcement_v1", JSON.stringify(announcement));
-    } catch (e) {
-      console.error("Error saving announcement", e);
-    }
-  }, [announcement]);
+    const checkHash = () => {
+      if (window.location.hash === "#portal-admin" || window.location.hash === "#admin") {
+        setIsAdminPortalModalOpen(true);
+      }
+    };
+    checkHash();
+    window.addEventListener("hashchange", checkHash);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "A" || e.key === "a")) {
+        e.preventDefault();
+        setIsAdminPortalModalOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("hashchange", checkHash);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   const notify = (msg: string) => {
     setNotice(msg);
@@ -459,8 +494,9 @@ function MainApp() {
     notify(`Buscando experiencias${activityText} para ${travelers} entre el ${dateRange.label}.`);
   };
 
-  // Place operations for admin
-  const handleSavePlace = (placeToSave: PlaceItem) => {
+  // Place operations synchronized with Cloud Firestore
+  const handleSavePlace = async (placeToSave: PlaceItem) => {
+    await savePlace(placeToSave);
     setPlaces((prev) => {
       const exists = prev.some((p) => p.id === placeToSave.id);
       if (exists) {
@@ -468,28 +504,27 @@ function MainApp() {
       }
       return [placeToSave, ...prev];
     });
-    notify(editingPlace ? `Destino "${placeToSave.title}" actualizado con éxito.` : `¡Nuevo destino "${placeToSave.title}" agregado al catálogo!`);
+    notify(editingPlace ? `Destino "${placeToSave.title}" actualizado con éxito en Firestore.` : `¡Nuevo destino "${placeToSave.title}" guardado en la base de datos!`);
     setEditingPlace(null);
   };
 
-  const handleDeletePlace = (id: string, title: string) => {
-    if (confirm(`¿Estás seguro de eliminar el destino "${title}"?`)) {
+  const handleDeletePlace = async (id: string, title: string) => {
+    if (confirm(`¿Estás seguro de eliminar el destino "${title}" de la base de datos?`)) {
+      await deletePlace(id);
       setPlaces((prev) => prev.filter((p) => p.id !== id));
       notify(`Destino "${title}" eliminado.`);
     }
   };
 
-  const handleToggleFeatured = (id: string) => {
+  const handleToggleFeatured = async (id: string) => {
+    const target = places.find((p) => p.id === id);
+    if (!target) return;
+    const updated = { ...target, featured: !target.featured };
+    await savePlace(updated);
     setPlaces((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          const newFeatured = !p.featured;
-          notify(newFeatured ? `"${p.title}" marcado como Destacado ⭐` : `"${p.title}" retirado de destacados.`);
-          return { ...p, featured: newFeatured };
-        }
-        return p;
-      })
+      prev.map((p) => (p.id === id ? updated : p))
     );
+    notify(updated.featured ? `"${target.title}" marcado como Destacado ⭐` : `"${target.title}" retirado de destacados.`);
   };
 
   const openNewPlaceModal = () => {
@@ -1268,7 +1303,7 @@ function MainApp() {
 
           <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/50 font-subtitle">
             <p>© {new Date().getFullYear()} Cochabamba Turismo · Riqsi Rutas. Todos los derechos reservados.</p>
-            <div className="flex gap-6">
+            <div className="flex items-center gap-6">
               <a href="#" className="hover:text-white transition">Privacidad</a>
               <a href="#" className="hover:text-white transition">Términos</a>
               <a href="#" className="hover:text-white transition">Contacto</a>
@@ -1285,6 +1320,7 @@ function MainApp() {
         onOpenNewPlace={openNewPlaceModal}
         onOpenUsers={() => setIsAdminUsersModalOpen(true)}
         onOpenAnnouncement={() => setIsAdminAnnouncementModalOpen(true)}
+        onOpenSecurityPortal={() => setIsAdminPortalModalOpen(true)}
       />
 
       {/* Auth Modal (Login & Registration) */}
@@ -1292,6 +1328,13 @@ function MainApp() {
         isOpen={isAuthModalOpen}
         defaultTab={authModalTab}
         onClose={() => setIsAuthModalOpen(false)}
+        onNotify={notify}
+      />
+
+      {/* Admin Portal Modal (Master Security Key, Audit Trail, Firebase Settings) */}
+      <AdminPortalModal
+        isOpen={isAdminPortalModalOpen}
+        onClose={() => setIsAdminPortalModalOpen(false)}
         onNotify={notify}
       />
 
@@ -1315,9 +1358,10 @@ function MainApp() {
       <AdminAnnouncementModal
         isOpen={isAdminAnnouncementModalOpen}
         announcement={announcement}
-        onSave={(updatedAnn) => {
+        onSave={async (updatedAnn) => {
+          await saveAnnouncement(updatedAnn);
           setAnnouncement(updatedAnn);
-          notify("Comunicado oficial actualizado.");
+          notify("Comunicado oficial actualizado y guardado en Firestore.");
         }}
         onClose={() => setIsAdminAnnouncementModalOpen(false)}
       />
