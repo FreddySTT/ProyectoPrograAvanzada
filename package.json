@@ -9,7 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/mapbox-gl": "^3.4.1",
     "firebase": "^13.0.0",
+    "mapbox-gl": "^3.33.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
