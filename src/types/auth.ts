@@ -24,6 +24,7 @@ export interface PlaceItem {
   time: string;
   featured?: boolean;
   visible?: boolean;
+  coordinates?: [number, number];
   createdAt?: string;
   updatedAt?: string;
   createdBy?: string;

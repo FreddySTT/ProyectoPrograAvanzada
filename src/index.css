@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Allura&family=Fraunces:ital,opsz,wght@0,9..144,500..800;1,9..144,500..800&family=Montserrat+Alternates:wght@400;500;600;700;800&family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,500;0,6..12,600;0,6..12,700;0,6..12,800;1,6..12,400&display=swap');
 @import 'tailwindcss';
+@import 'mapbox-gl/dist/mapbox-gl.css';
 
 @theme {
   --font-sans: 'Nunito Sans', sans-serif;

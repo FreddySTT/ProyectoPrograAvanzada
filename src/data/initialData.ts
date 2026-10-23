@@ -53,6 +53,7 @@ export const INITIAL_PLACES: PlaceItem[] = [
     time: "2–3 h",
     featured: true,
     visible: true,
+    coordinates: [-66.1349, -17.3843],
   },
   {
     id: "place-2",
@@ -65,6 +66,7 @@ export const INITIAL_PLACES: PlaceItem[] = [
     time: "1–2 h",
     featured: false,
     visible: true,
+    coordinates: [-66.1528, -17.3749],
   },
   {
     id: "place-3",
@@ -77,6 +79,7 @@ export const INITIAL_PLACES: PlaceItem[] = [
     time: "Día completo",
     featured: true,
     visible: true,
+    coordinates: [-66.3208, -17.2301],
   },
   {
     id: "place-4",
@@ -137,6 +140,7 @@ export const INITIAL_PLACES: PlaceItem[] = [
     time: "4 h",
     featured: false,
     visible: true,
+    coordinates: [-66.1533, -17.4022],
   },
 ];
 
