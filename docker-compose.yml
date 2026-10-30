@@ -1,0 +1,62 @@
+# ==============================================================================
+# Docker Compose — Riqsi Rutas Full Stack
+# Arquitectura: Supabase Cloud <---> Backend Flask (POO) <---> Frontend React SPA (Nginx)
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Backend API (Flask + Gunicorn + POO + Supabase Bridge + Dijkstra)
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./flask-crud
+      dockerfile: Dockerfile
+    container_name: riqsi-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_KEY=${SUPABASE_KEY:-}
+      - FLASK_ENV=production
+      - PORT=5000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - riqsi-net
+
+  # ----------------------------------------------------------------------------
+  # 2. Frontend Web Application (React + Vite + Nginx Reverse Proxy)
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VITE_SUPABASE_URL=${SUPABASE_URL:-}
+        - VITE_SUPABASE_ANON_KEY=${SUPABASE_KEY:-}
+        - VITE_BASE_PATH=/
+    container_name: riqsi-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - riqsi-net
+
+networks:
+  riqsi-net:
+    driver: bridge

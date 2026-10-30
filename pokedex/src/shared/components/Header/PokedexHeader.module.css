@@ -1,0 +1,182 @@
+.header {
+  position: relative;
+  width: 100%;
+  margin-bottom: 2rem;
+  padding-top: 1rem;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  padding: 1.25rem 1.75rem;
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 1.5rem;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.sensorCluster {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.bigBlueSensor {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 4px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.6), inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.blueLensInner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #93c5fd 0%, #3b82f6 50%, #1d4ed8 100%);
+  box-shadow: inset -2px -2px 6px rgba(0, 0, 0, 0.5), 0 0 12px rgba(59, 130, 246, 0.8);
+  animation: pulseLens 3s infinite alternate ease-in-out;
+}
+
+@keyframes pulseLens {
+  0% { transform: scale(0.96); filter: brightness(0.95); }
+  100% { transform: scale(1.04); filter: brightness(1.2); }
+}
+
+.smallLeds {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.led {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 8px currentColor;
+}
+
+.ledRed {
+  background: #ef4444;
+  color: #ef4444;
+  animation: ledBlink 1.8s infinite;
+}
+
+.ledYellow {
+  background: #f59e0b;
+  color: #f59e0b;
+  animation: ledBlink 2.3s infinite 0.4s;
+}
+
+.ledGreen {
+  background: #10b981;
+  color: #10b981;
+  animation: ledBlink 1.5s infinite 0.8s;
+}
+
+@keyframes ledBlink {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; filter: brightness(1.4); }
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.titleLink {
+  text-decoration: none;
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.brandBadge {
+  font-family: monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.4rem;
+  letter-spacing: 1px;
+}
+
+.mainTitle {
+  font-size: clamp(1.4rem, 3.5vw, 2rem);
+  font-weight: 900;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.highlight {
+  color: #ef4444;
+  text-shadow: 0 0 16px rgba(239, 68, 68, 0.6);
+}
+
+.tagline {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  max-width: 600px;
+}
+
+.linksCluster {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.portfolioLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-decoration: none;
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.portfolioLink:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.35);
+  transform: translateY(-2px);
+}
+
+.extIcon {
+  font-size: 0.85rem;
+  color: #ef4444;
+}
+
+.accentLine {
+  height: 2px;
+  width: 100%;
+  background: linear-gradient(90deg, #ef4444 0%, #3b82f6 50%, transparent 100%);
+  margin-top: 0.5rem;
+  border-radius: 9999px;
+  opacity: 0.6;
+}
+
+@media (max-width: 680px) {
+  .topBar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
