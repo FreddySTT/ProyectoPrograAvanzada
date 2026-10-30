@@ -503,9 +503,13 @@ function MainApp() {
       const exists = prev.some((p) => p.id === placeToSave.id);
       return exists ? prev.map((p) => (p.id === placeToSave.id ? placeToSave : p)) : [placeToSave, ...prev];
     });
-    notify(editingPlace ? `Destino "${placeToSave.title}" actualizado.` : `¡Nuevo destino "${placeToSave.title}" guardado!`);
-    setEditingPlace(null);
-  };
+     notify(
+    editingPlace
+      ? `¡Los cambios de "${placeToSave.title}" se guardaron correctamente!`
+      : `¡El destino "${placeToSave.title}" se guardó correctamente!`
+  );
+  setEditingPlace(null);
+};
 
   const handleDeletePlace = async (id: string, title: string) => {
     if (confirm(`¿Estás seguro de eliminar el destino "${title}"?`)) {
