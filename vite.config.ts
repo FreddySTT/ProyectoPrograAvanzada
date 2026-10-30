@@ -21,7 +21,7 @@ export default defineConfig({
   server: {
     watch: {
       // Excluir carpetas que no son parte del proyecto Vite/React
-      ignored: ['**/flask-crud/**', '**/pokedex/**', '**/.git/**'],
+      ignored: ['**/flask-crud/**', '**/.git/**'],
     },
   },
 });
