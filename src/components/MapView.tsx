@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
 import type { PlaceItem } from "../types/auth";
 
 type FilterType = "todos" | "gastronomia" | "cultura" | "naturaleza" | "aventura";

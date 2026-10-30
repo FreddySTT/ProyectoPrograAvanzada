@@ -5,7 +5,7 @@ import path from 'node:path';
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/ProyectoPrograAvanzada/',
+  base: process.env.VITE_BASE_PATH || (process.env.GITHUB_ACTIONS ? '/ProyectoPrograAvanzada/' : '/'),
   plugins: [
     react(),
     tailwindcss(),
@@ -17,5 +17,11 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+  },
+  server: {
+    watch: {
+      // Excluir carpetas que no son parte del proyecto Vite/React
+      ignored: ['**/flask-crud/**', '**/.git/**'],
+    },
   },
 });

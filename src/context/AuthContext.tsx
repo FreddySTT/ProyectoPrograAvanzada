@@ -1,26 +1,36 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import type { User, Role, SecurityLog } from "../types/auth";
 import { INITIAL_USERS } from "../data/initialData";
-import { auth, isFirebaseLiveConfigured } from "../firebase/config";
+import { isSupabaseConfigured } from "../supabase/config";
 import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-} from "firebase/auth";
+  fetchUsers,
+  saveUserToDatabase,
+  updateUserRoleInDatabase,
+  updateUserStatusInDatabase,
+  resetUserPasswordInDatabase,
+  deleteUserFromDatabase,
+  logSecurityEvent,
+  getStoredSecurityLogs,
+} from "../supabase/services";
 import {
-  saveUserDoc,
-  updateUserRoleInFirestore,
-  deleteUserFromFirestore,
-  subscribeToUsers,
-  recordSecurityLog,
-  subscribeToSecurityLogs,
-} from "../firebase/services";
+  hashPassword,
+  verifyPassword,
+  verifyMasterAdminKey,
+  validatePasswordPolicy,
+} from "../utils/security";
+import {
+  secureGet,
+  secureSet,
+  secureRemove,
+  getStorageMode,
+  setStorageMode,
+  purgeAllStorage,
+  type StorageMode,
+} from "../utils/storage";
 
-export const MASTER_ADMIN_SECURITY_KEY = "LLAJTA-2026-SEGURA";
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_SECONDS = 60;
-const SESSION_STORAGE_KEY = "riqsi_current_user_v1";
+const SESSION_STORAGE_KEY = "riqsi_current_user_v2";
 
 interface AuthContextType {
   currentUser: User | null;
@@ -28,119 +38,101 @@ interface AuthContextType {
   previewAsNormal: boolean;
   setPreviewAsNormal: (val: boolean) => void;
   isEffectiveAdmin: boolean;
-  isFirebaseLive: boolean;
+  isEditorOrAdmin: boolean;
+  isSupabaseLive: boolean;
   isLockedOut: boolean;
   lockoutRemaining: number;
   securityLogs: SecurityLog[];
+  storageMode: StorageMode;
+  toggleStorageMode: (mode: StorageMode) => void;
+  purgeStorage: () => void;
   login: (usernameOrEmail: string, password: string) => Promise<{ success: boolean; message: string }>;
   register: (data: { name: string; username: string; email: string; password: string; avatar?: string }) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
   elevateToAdmin: (securityKey: string) => Promise<{ success: boolean; message: string }>;
   adminCreateUser: (data: { name: string; username: string; email: string; password: string; role: Role; avatar?: string }) => Promise<{ success: boolean; message: string }>;
   adminUpdateUserRole: (userId: string, role: Role) => Promise<void>;
+  adminUpdateUserStatus: (userId: string, status: "active" | "suspended") => Promise<{ success: boolean; message: string }>;
+  adminResetPassword: (userId: string, newPass: string) => Promise<{ success: boolean; message: string }>;
   adminDeleteUser: (userId: string) => Promise<{ success: boolean; message: string }>;
-  verifyAdminSecurityKey: (key: string) => boolean;
+  requestPasswordReset: (usernameOrEmail: string, masterKey: string, newPass: string) => Promise<{ success: boolean; message: string }>;
+  verifyAdminSecurityKey: (key: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const isFirebaseLive = isFirebaseLiveConfigured();
+  const isSupabaseLive = isSupabaseConfigured();
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [securityLogs, setSecurityLogs] = useState<SecurityLog[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    try {
-      const stored = localStorage.getItem(SESSION_STORAGE_KEY);
-      if (stored) return JSON.parse(stored);
-    } catch (e) {
-      console.error("Error reading session", e);
-    }
-    return null;
-  });
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [storageMode, setStorageModeState] = useState<StorageMode>(getStorageMode());
+
+  // Cargar sesión cifrada al montar
+  useEffect(() => {
+    secureGet<Omit<User, "passwordHash">>(SESSION_STORAGE_KEY).then((stored) => {
+      if (stored) setCurrentUser(stored as User);
+    });
+  }, []);
 
   const [previewAsNormal, setPreviewAsNormal] = useState<boolean>(false);
   const [failedAttempts, setFailedAttempts] = useState<number>(0);
   const [lockoutRemaining, setLockoutRemaining] = useState<number>(0);
 
-  // Subscribe to real-time users from Firestore
+  // Sincronizar usuarios desde Supabase o almacenamiento seguro
   useEffect(() => {
-    const unsubUsers = subscribeToUsers((updatedUsers) => {
-      if (updatedUsers && updatedUsers.length > 0) {
-        setUsers(updatedUsers);
+    fetchUsers().then((loadedUsers) => {
+      if (loadedUsers && loadedUsers.length > 0) {
+        setUsers(loadedUsers);
       }
     });
 
-    const unsubLogs = subscribeToSecurityLogs((logs) => {
-      setSecurityLogs(logs);
-    });
-
-    return () => {
-      unsubUsers();
-      unsubLogs();
-    };
+    getStoredSecurityLogs().then((logs) => setSecurityLogs(logs));
   }, []);
 
-  // Listen to Firebase Auth state if configured
+  // Guardar sesión protegida
   useEffect(() => {
-    if (!isFirebaseLive || !auth) return;
-
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Find user record in users list
-        const existing = users.find((u) => u.uid === firebaseUser.uid || u.email === firebaseUser.email);
-        if (existing) {
-          setCurrentUser(existing);
-        } else {
-          // Construct user profile
-          const newUser: User = {
-            id: `usr-${firebaseUser.uid.substring(0, 8)}`,
-            uid: firebaseUser.uid,
-            name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Viajero",
-            username: firebaseUser.email?.split("@")[0] || "turista",
-            email: firebaseUser.email || "",
-            role: "normal",
-            avatar: "🎒",
-            createdAt: new Date().toISOString().split("T")[0],
-          };
-          await saveUserDoc(newUser);
-          setCurrentUser(newUser);
-        }
-      }
-    });
-
-    return () => unsubscribe();
-  }, [isFirebaseLive, users]);
-
-  // Sync session to localStorage
-  useEffect(() => {
-    try {
-      if (currentUser) {
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentUser));
-      } else {
-        localStorage.removeItem(SESSION_STORAGE_KEY);
-      }
-    } catch (e) {
-      console.error("Error updating session storage", e);
+    if (currentUser) {
+      const { passwordHash, ...safeUser } = currentUser;
+      secureSet(SESSION_STORAGE_KEY, safeUser);
+    } else {
+      secureRemove(SESSION_STORAGE_KEY);
     }
   }, [currentUser]);
 
-  // Handle brute-force lockout timer
+  // Temporizador de bloqueo por fuerza bruta
   useEffect(() => {
     if (lockoutRemaining <= 0) return;
-    const timer = setInterval(() => {
-      setLockoutRemaining((prev) => {
-        if (prev <= 1) {
-          setFailedAttempts(0);
-          return 0;
-        }
-        return prev - 1;
-      });
+    const interval = setInterval(() => {
+      setLockoutRemaining((prev) => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
-    return () => clearInterval(timer);
+    return () => clearInterval(interval);
   }, [lockoutRemaining]);
 
-  const verifyAdminSecurityKey = (key: string): boolean => {
-    return key.trim() === MASTER_ADMIN_SECURITY_KEY;
+  const toggleStorageMode = (mode: StorageMode) => {
+    setStorageMode(mode);
+    setStorageModeState(mode);
+    logSecurityEvent({
+      event: "STORAGE_MODE_CHANGED",
+      userEmail: currentUser?.email || "sistema",
+      status: "OK",
+      details: `Modo de almacenamiento actualizado a: ${mode === "memory-only" ? "Memoria Volátil (Zero-Storage)" : "Cifrado Militar AES-256"}`,
+    });
+  };
+
+  const purgeStorage = () => {
+    purgeAllStorage();
+    setCurrentUser(null);
+    logSecurityEvent({
+      event: "PURGE_STORAGE",
+      userEmail: currentUser?.email || "admin",
+      status: "WARNING",
+      details: "Purgado total del almacenamiento local ejecutado. Rastro eliminado.",
+    });
+  };
+
+  const verifyAdminSecurityKey = async (key: string): Promise<boolean> => {
+    return await verifyMasterAdminKey(key);
   };
 
   const login = async (usernameOrEmail: string, password: string) => {
@@ -153,66 +145,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const cleanIdentifier = usernameOrEmail.trim().toLowerCase();
 
-    // 1. If Firebase Live is connected, attempt Firebase Auth
-    if (isFirebaseLive && auth) {
-      try {
-        const emailToUse = cleanIdentifier.includes("@")
-          ? cleanIdentifier
-          : `${cleanIdentifier}@riqsirutas.bo`;
+    let userList = users;
+    // Asegurar lista actualizada con hashes desde Supabase
+    const foundInState = userList.find(
+      (u) =>
+        u.username.toLowerCase() === cleanIdentifier ||
+        u.email.toLowerCase() === cleanIdentifier
+    );
 
-        const userCredential = await signInWithEmailAndPassword(auth, emailToUse, password);
-        const fbUser = userCredential.user;
-
-        const matchedProfile = users.find((u) => u.email.toLowerCase() === fbUser.email?.toLowerCase());
-        const userObj: User = matchedProfile || {
-          id: `usr-${fbUser.uid.substring(0, 8)}`,
-          uid: fbUser.uid,
-          name: fbUser.displayName || fbUser.email?.split("@")[0] || "Viajero",
-          username: fbUser.email?.split("@")[0] || "turista",
-          email: fbUser.email || "",
-          role: "normal",
-          avatar: "🎒",
-          createdAt: new Date().toISOString().split("T")[0],
-        };
-
-        setCurrentUser(userObj);
-        setPreviewAsNormal(false);
-        setFailedAttempts(0);
-
-        await recordSecurityLog({
-          event: "LOGIN_SUCCESS",
-          userEmail: userObj.email,
-          role: userObj.role,
-          status: "OK",
-          details: `Ingreso exitoso con Firebase Authentication (${userObj.role})`,
-        });
-
-        return {
-          success: true,
-          message: userObj.role === "admin" ? `¡Bienvenido Administrador ${userObj.name}!` : `¡Bienvenido ${userObj.name}!`,
-        };
-      } catch (fbErr: any) {
-        console.warn("Firebase Auth error:", fbErr.code);
-        // Fallback to local user search
+    if (!foundInState || !foundInState.passwordHash) {
+      const freshUsers = await fetchUsers();
+      if (freshUsers && freshUsers.length > 0) {
+        userList = freshUsers;
+        setUsers(freshUsers);
       }
     }
 
-    // 2. Hybrid / Fallback local matching
-    const user = users.find(
+    const candidate = userList.find(
       (u) =>
-        (u.username.toLowerCase() === cleanIdentifier || u.email.toLowerCase() === cleanIdentifier) &&
-        (u.password === password || password === "admin" || password === "123")
+        u.username.toLowerCase() === cleanIdentifier ||
+        u.email.toLowerCase() === cleanIdentifier
     );
 
-    if (!user) {
+    // Validar si la cuenta está suspendida
+    if (candidate && candidate.status === "suspended") {
+      await logSecurityEvent({
+        event: "LOGIN_FAILED",
+        userEmail: cleanIdentifier,
+        status: "BLOCKED",
+        details: "Intento de inicio de sesión en cuenta suspendida",
+      });
+      return {
+        success: false,
+        message: "Esta cuenta está temporalmente suspendida por seguridad. Contacta al Administrador.",
+      };
+    }
+
+    let passwordMatches = false;
+    if (candidate && candidate.passwordHash) {
+      passwordMatches = await verifyPassword(password, candidate.passwordHash);
+    }
+
+    if (!candidate || !passwordMatches) {
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
 
-      await recordSecurityLog({
+      await logSecurityEvent({
         event: "LOGIN_FAILED",
         userEmail: cleanIdentifier,
         status: newAttempts >= MAX_FAILED_ATTEMPTS ? "BLOCKED" : "WARNING",
-        details: `Intento de acceso fallido (${newAttempts}/${MAX_FAILED_ATTEMPTS})`,
+        details: `Intento de acceso fallido con clave incorrecta (${newAttempts}/${MAX_FAILED_ATTEMPTS})`,
       });
 
       if (newAttempts >= MAX_FAILED_ATTEMPTS) {
@@ -229,21 +211,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    setCurrentUser(user);
+    // Inicio exitoso
+    const safeUser: User = {
+      ...candidate,
+      lastLogin: new Date().toISOString(),
+    };
+
+    setCurrentUser(safeUser);
     setPreviewAsNormal(false);
     setFailedAttempts(0);
 
-    await recordSecurityLog({
+    await logSecurityEvent({
       event: "LOGIN_SUCCESS",
-      userEmail: user.email,
-      role: user.role,
+      userEmail: candidate.email,
+      role: candidate.role,
       status: "OK",
-      details: `Sesión iniciada correctamente (${user.role})`,
+      details: `Sesión iniciada correctamente con autenticación SHA-256 (${candidate.role})`,
     });
 
     return {
       success: true,
-      message: user.role === "admin" ? `¡Bienvenido Administrador ${user.name}!` : `¡Bienvenido ${user.name}!`,
+      message:
+        candidate.role === "admin"
+          ? `¡Bienvenido Administrador ${candidate.name}!`
+          : `¡Bienvenido a Riqsi Rutas, ${candidate.name}!`,
     };
   };
 
@@ -260,140 +251,102 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string;
     avatar?: string;
   }) => {
-    const cleanUsername = username.trim().toLowerCase();
+    const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
     const cleanEmail = email.trim().toLowerCase();
 
     if (!name.trim() || !cleanUsername || !password.trim()) {
-      return { success: false, message: "Por favor completa todos los campos requeridos." };
+      return { success: false, message: "Todos los campos obligatorios deben completarse." };
     }
 
-    if (password.length < 6) {
-      return { success: false, message: "Por seguridad, la contraseña debe tener al menos 6 caracteres." };
+    const policy = validatePasswordPolicy(password);
+    if (!policy.isValid) {
+      return { success: false, message: policy.message };
     }
 
-    if (users.some((u) => u.username.toLowerCase() === cleanUsername)) {
-      return { success: false, message: `El nombre de usuario "${username}" ya está registrado.` };
+    const usernameExists = users.some((u) => u.username.toLowerCase() === cleanUsername);
+    if (usernameExists) {
+      return { success: false, message: `El nombre de usuario @${cleanUsername} ya está en uso.` };
     }
 
-    if (cleanEmail && users.some((u) => u.email.toLowerCase() === cleanEmail)) {
-      return { success: false, message: `El correo "${email}" ya está registrado.` };
+    const emailExists = users.some((u) => u.email.toLowerCase() === cleanEmail);
+    if (emailExists) {
+      return { success: false, message: `El correo ${cleanEmail} ya se encuentra registrado.` };
     }
 
-    let uid = `usr-${Date.now()}`;
+    // Cifrar contraseña con SHA-256 + Salt
+    const passwordHash = await hashPassword(password);
 
-    // 1. Try Firebase Auth create user
-    if (isFirebaseLive && auth) {
-      try {
-        const cred = await createUserWithEmailAndPassword(auth, cleanEmail || `${cleanUsername}@riqsirutas.bo`, password);
-        uid = cred.user.uid;
-      } catch (e: any) {
-        console.warn("Could not create Firebase Auth account, proceeding with cloud doc:", e.message);
-      }
-    }
-
-    // New users registering publicly are ALWAYS assigned role "normal" (Turista) for security
     const newUser: User = {
-      id: uid,
-      uid,
+      id: `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       name: name.trim(),
       username: cleanUsername,
-      email: cleanEmail || `${cleanUsername}@usuario.bo`,
+      email: cleanEmail,
+      passwordHash,
       role: "normal",
-      avatar: avatar || "🎒",
+      status: "active",
+      avatar,
       createdAt: new Date().toISOString().split("T")[0],
+      lastLogin: new Date().toISOString(),
     };
 
-    await saveUserDoc(newUser);
+    await saveUserToDatabase(newUser);
+    setUsers((prev) => [newUser, ...prev]);
     setCurrentUser(newUser);
-    setPreviewAsNormal(false);
 
-    await recordSecurityLog({
-      event: "LOGIN_SUCCESS",
-      userEmail: newUser.email,
+    await logSecurityEvent({
+      event: "USER_REGISTERED",
+      userEmail: cleanEmail,
       role: "normal",
       status: "OK",
-      details: "Nuevo usuario turista registrado con éxito",
+      details: `Nuevo usuario registrado con credenciales cifradas (@${cleanUsername})`,
     });
 
-    return {
-      success: true,
-      message: `¡Cuenta creada con éxito! Bienvenido a Riqsi Rutas, ${newUser.name}.`,
-    };
+    return { success: true, message: `¡Registro exitoso! Bienvenido a Cochabamba, ${newUser.name}.` };
   };
 
-  // Secure elevation with Master Security Key
-  const elevateToAdmin = async (securityKey: string) => {
-    if (!verifyAdminSecurityKey(securityKey)) {
-      await recordSecurityLog({
-        event: "BLOCKED_ATTEMPT",
-        userEmail: currentUser?.email || "anonimo",
-        status: "BLOCKED",
-        details: "Intento fallido de elevación a Administrador con clave incorrecta",
-      });
-      return { success: false, message: "Clave Maestra de Seguridad incorrecta. Acceso denegado." };
-    }
-
-    if (!currentUser) {
-      // Create or log in as default Master Admin
-      const masterAdmin: User = {
-        id: "usr-admin-master",
-        username: "admin",
-        name: "Freddy (Super Admin)",
-        email: "admin@riqsirutas.bo",
-        role: "admin",
-        avatar: "👑",
-        createdAt: "2026-09-01",
-      };
-      await saveUserDoc(masterAdmin);
-      setCurrentUser(masterAdmin);
-      setPreviewAsNormal(false);
-
-      await recordSecurityLog({
-        event: "ADMIN_ELEVATION",
-        userEmail: masterAdmin.email,
-        role: "admin",
-        status: "OK",
-        details: "Sesión Super Administrador activada con Clave Maestra",
-      });
-
-      return { success: true, message: "¡Acceso concedido! Panel de Administrador activado." };
-    }
-
-    // Elevate current user
-    const updatedUser: User = { ...currentUser, role: "admin" };
-    await updateUserRoleInFirestore(currentUser.id, "admin");
-    setCurrentUser(updatedUser);
+  const logout = async () => {
+    const emailBefore = currentUser?.email || "anon";
+    setCurrentUser(null);
     setPreviewAsNormal(false);
 
-    await recordSecurityLog({
+    await logSecurityEvent({
+      event: "LOGOUT",
+      userEmail: emailBefore,
+      status: "OK",
+      details: "Cierre de sesión seguro finalizado",
+    });
+  };
+
+  const elevateToAdmin = async (securityKey: string) => {
+    if (!currentUser) {
+      return { success: false, message: "Debes iniciar sesión primero." };
+    }
+
+    const isValid = await verifyMasterAdminKey(securityKey);
+    if (!isValid) {
+      await logSecurityEvent({
+        event: "ADMIN_ELEVATION",
+        userEmail: currentUser.email,
+        status: "WARNING",
+        details: "Intento fallido de elevación a Administrador (clave maestra incorrecta)",
+      });
+      return { success: false, message: "Clave Maestra incorrecta o no autorizada." };
+    }
+
+    await updateUserRoleInDatabase(currentUser.id, "admin");
+    const updated = { ...currentUser, role: "admin" as Role };
+    setCurrentUser(updated);
+    setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updated : u)));
+
+    await logSecurityEvent({
       event: "ADMIN_ELEVATION",
       userEmail: currentUser.email,
       role: "admin",
       status: "OK",
-      details: `Usuario ${currentUser.email} elevado a Administrador con Clave Maestra`,
+      details: "Usuario elevado exitosamente a Administrador mediante Clave Maestra",
     });
 
-    return { success: true, message: `¡Privilegios de Administrador asignados a ${currentUser.name}!` };
-  };
-
-  const logout = async () => {
-    const userEmail = currentUser?.email || "desconocido";
-    if (isFirebaseLive && auth) {
-      try {
-        await signOut(auth);
-      } catch (e) {
-        console.warn("Sign out error", e);
-      }
-    }
-    setCurrentUser(null);
-    setPreviewAsNormal(false);
-
-    await recordSecurityLog({
-      event: "LOGOUT",
-      userEmail,
-      status: "OK",
-      details: "Sesión cerrada correctamente",
-    });
+    return { success: true, message: "¡Privilegios de Administrador activados con éxito!" };
   };
 
   const adminCreateUser = async ({
@@ -402,7 +355,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email,
     password,
     role,
-    avatar,
+    avatar = "🎒",
   }: {
     name: string;
     username: string;
@@ -411,87 +364,165 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: Role;
     avatar?: string;
   }) => {
-    const cleanUsername = username.trim().toLowerCase();
+    const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
     const cleanEmail = email.trim().toLowerCase();
 
     if (!name.trim() || !cleanUsername || !password.trim()) {
-      return { success: false, message: "Todos los campos son obligatorios." };
+      return { success: false, message: "Todos los campos requeridos deben completarse." };
     }
 
-    if (password.length < 6) {
-      return { success: false, message: "La contraseña debe tener mínimo 6 caracteres." };
+    const policy = validatePasswordPolicy(password);
+    if (!policy.isValid) {
+      return { success: false, message: policy.message };
     }
 
     if (users.some((u) => u.username.toLowerCase() === cleanUsername)) {
-      return { success: false, message: `El usuario "${username}" ya existe.` };
+      return { success: false, message: `El usuario @${cleanUsername} ya existe.` };
     }
 
-    let uid = `usr-${Date.now()}`;
-    if (isFirebaseLive && auth) {
-      try {
-        const cred = await createUserWithEmailAndPassword(auth, cleanEmail || `${cleanUsername}@sistema.bo`, password);
-        uid = cred.user.uid;
-      } catch (e) {
-        console.warn("Firebase Auth admin create user note:", e);
-      }
-    }
+    const passwordHash = await hashPassword(password);
 
     const newUser: User = {
-      id: uid,
-      uid,
+      id: `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       name: name.trim(),
       username: cleanUsername,
-      email: cleanEmail || `${cleanUsername}@sistema.bo`,
+      email: cleanEmail,
+      passwordHash,
       role,
-      avatar: avatar || (role === "admin" ? "👑" : "🎒"),
+      status: "active",
+      avatar,
       createdAt: new Date().toISOString().split("T")[0],
     };
 
-    await saveUserDoc(newUser);
+    await saveUserToDatabase(newUser);
+    setUsers((prev) => [newUser, ...prev]);
 
-    await recordSecurityLog({
+    await logSecurityEvent({
       event: "ROLE_UPDATED",
-      userEmail: newUser.email,
+      userEmail: cleanEmail,
       role,
       status: "OK",
-      details: `Administrador creó nuevo usuario: ${newUser.username} con rol ${role}`,
+      details: `Administrador creó usuario @${cleanUsername} con rol ${role}`,
     });
 
-    return { success: true, message: `Usuario ${newUser.username} (${role}) creado exitosamente.` };
+    return { success: true, message: `Usuario @${cleanUsername} creado exitosamente con rol ${role}.` };
   };
 
-  const adminUpdateUserRole = async (userId: string, newRole: Role) => {
-    await updateUserRoleInFirestore(userId, newRole);
-    if (currentUser && (currentUser.id === userId || currentUser.uid === userId)) {
-      setCurrentUser({ ...currentUser, role: newRole });
+  const adminUpdateUserRole = async (userId: string, role: Role) => {
+    await updateUserRoleInDatabase(userId, role);
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
+    if (currentUser?.id === userId) {
+      setCurrentUser((prev) => (prev ? { ...prev, role } : null));
     }
 
-    await recordSecurityLog({
+    await logSecurityEvent({
       event: "ROLE_UPDATED",
-      userEmail: currentUser?.email || "admin",
-      role: newRole,
+      userEmail: userId,
+      role,
       status: "OK",
-      details: `Rol del usuario ${userId} actualizado a ${newRole}`,
+      details: `Rol de usuario ${userId} actualizado a ${role}`,
     });
+  };
+
+  const adminUpdateUserStatus = async (userId: string, status: "active" | "suspended") => {
+    if (currentUser?.id === userId && status === "suspended") {
+      return { success: false, message: "No puedes suspender tu propia cuenta activa." };
+    }
+
+    await updateUserStatusInDatabase(userId, status);
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status } : u)));
+
+    await logSecurityEvent({
+      event: status === "suspended" ? "USER_SUSPENDED" : "USER_ACTIVATED",
+      userEmail: userId,
+      status: status === "suspended" ? "WARNING" : "OK",
+      details: `Estado de usuario ${userId} cambiado a: ${status}`,
+    });
+
+    return {
+      success: true,
+      message: `Usuario ${status === "suspended" ? "suspendido" : "reactivado"} con éxito.`,
+    };
+  };
+
+  const adminResetPassword = async (userId: string, newPass: string) => {
+    const policy = validatePasswordPolicy(newPass);
+    if (!policy.isValid) {
+      return { success: false, message: policy.message };
+    }
+
+    const newHash = await hashPassword(newPass);
+    await resetUserPasswordInDatabase(userId, newHash);
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, passwordHash: newHash } : u)));
+
+    await logSecurityEvent({
+      event: "PASSWORD_RESET",
+      userEmail: userId,
+      status: "WARNING",
+      details: `Contraseña de usuario ${userId} restablecida por Administrador`,
+    });
+
+    return { success: true, message: "Contraseña actualizada exitosamente." };
+  };
+
+  const requestPasswordReset = async (
+    usernameOrEmail: string,
+    masterKey: string,
+    newPass: string
+  ) => {
+    const isMasterValid = await verifyMasterAdminKey(masterKey);
+    if (!isMasterValid) {
+      return { success: false, message: "Clave de Autorización Maestra incorrecta." };
+    }
+
+    const policy = validatePasswordPolicy(newPass);
+    if (!policy.isValid) {
+      return { success: false, message: policy.message };
+    }
+
+    const clean = usernameOrEmail.trim().toLowerCase();
+    const target = users.find(
+      (u) => u.username.toLowerCase() === clean || u.email.toLowerCase() === clean
+    );
+
+    if (!target) {
+      return { success: false, message: "No se encontró ningún usuario con ese correo o usuario." };
+    }
+
+    const newHash = await hashPassword(newPass);
+    await resetUserPasswordInDatabase(target.id, newHash);
+    setUsers((prev) => prev.map((u) => (u.id === target.id ? { ...u, passwordHash: newHash } : u)));
+
+    await logSecurityEvent({
+      event: "PASSWORD_RESET",
+      userEmail: target.email,
+      status: "WARNING",
+      details: `Contraseña restablecida de emergencia con Clave Maestra para ${target.username}`,
+    });
+
+    return { success: true, message: `Contraseña restablecida con éxito para @${target.username}. Ya puedes iniciar sesión.` };
   };
 
   const adminDeleteUser = async (userId: string) => {
-    if (currentUser && (currentUser.id === userId || currentUser.uid === userId)) {
+    if (currentUser?.id === userId) {
       return { success: false, message: "No puedes eliminar tu propia cuenta en sesión activa." };
     }
-    await deleteUserFromFirestore(userId);
 
-    await recordSecurityLog({
+    await deleteUserFromDatabase(userId);
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+
+    await logSecurityEvent({
       event: "ROLE_UPDATED",
-      userEmail: currentUser?.email || "admin",
+      userEmail: userId,
       status: "WARNING",
-      details: `Usuario ${userId} eliminado por el administrador`,
+      details: `Usuario ${userId} eliminado del sistema por el Administrador`,
     });
 
-    return { success: true, message: "Usuario eliminado correctamente." };
+    return { success: true, message: "Usuario eliminado correctamente del sistema." };
   };
 
   const isEffectiveAdmin = currentUser?.role === "admin" && !previewAsNormal;
+  const isEditorOrAdmin = (currentUser?.role === "admin" || currentUser?.role === "editor") && !previewAsNormal;
 
   return (
     <AuthContext.Provider
@@ -501,17 +532,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         previewAsNormal,
         setPreviewAsNormal,
         isEffectiveAdmin,
-        isFirebaseLive,
+        isEditorOrAdmin,
+        isSupabaseLive,
         isLockedOut: lockoutRemaining > 0,
         lockoutRemaining,
         securityLogs,
+        storageMode,
+        toggleStorageMode,
+        purgeStorage,
         login,
         register,
         logout,
         elevateToAdmin,
         adminCreateUser,
         adminUpdateUserRole,
+        adminUpdateUserStatus,
+        adminResetPassword,
         adminDeleteUser,
+        requestPasswordReset,
         verifyAdminSecurityKey,
       }}
     >

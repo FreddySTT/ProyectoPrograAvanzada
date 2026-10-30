@@ -1,0 +1,261 @@
+{
+	"info": {
+		"_postman_id": "c1f72810-7539-4d2b-b8c7-91de43e11029",
+		"name": "Flask CRUD — Usuarios en Memoria",
+		"description": "Colección oficial para probar la API REST de Usuarios hecha en Flask.\nServidor local corriendo en http://localhost:5050\n\nIncluye scripts automáticos: al crear un usuario o listar, el ID se guarda automáticamente en la variable 'userId' para que PUT, GET individual y DELETE funcionen con un solo clic.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:5050",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "0. Info del Servidor (GET /)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						""
+					]
+				},
+				"description": "Devuelve la información general y lista de endpoints disponibles."
+			},
+			"response": []
+		},
+		{
+			"name": "1. Health Check (GET /health)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/health",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"health"
+					]
+				},
+				"description": "Verifica si el servidor Flask está vivo y cuántos usuarios tiene cargados en memoria."
+			},
+			"response": []
+		},
+		{
+			"name": "2. Listar Usuarios (GET /api/users)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = pm.response.json();",
+							"if (jsonData.data && jsonData.data.length > 0) {",
+							"    // Guarda el ID del primer usuario en la variable para usarlo en GET/PUT/DELETE",
+							"    pm.collectionVariables.set('userId', jsonData.data[0].id);",
+							"    console.log('Variable userId configurada a:', jsonData.data[0].id);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/users",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"users"
+					]
+				},
+				"description": "Lista todos los usuarios almacenados en la memoria de Flask. Automáticamente copia el ID del primer usuario en {{userId}}."
+			},
+			"response": []
+		},
+		{
+			"name": "3. Crear Usuario (POST /api/users)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = pm.response.json();",
+							"if (jsonData.ok && jsonData.data && jsonData.data.id) {",
+							"    pm.collectionVariables.set('userId', jsonData.data.id);",
+							"    console.log('Nuevo usuario creado con ID:', jsonData.data.id);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"nombre\": \"Freddy Rodriguez\",\n  \"email\": \"freddy@ejemplo.com\",\n  \"telefono\": \"+591 789 65432\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/users",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"users"
+					]
+				},
+				"description": "Crea un nuevo usuario en memoria. Guarda automáticamente su id en {{userId}}."
+			},
+			"response": []
+		},
+		{
+			"name": "4. Obtener Usuario por ID (GET /api/users/:id)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/users/{{userId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"users",
+						"{{userId}}"
+					]
+				},
+				"description": "Busca un usuario específico usando la variable {{userId}}."
+			},
+			"response": []
+		},
+		{
+			"name": "5. Actualizar Usuario (PUT /api/users/:id)",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"nombre\": \"Freddy Rodriguez (Actualizado)\",\n  \"email\": \"freddy.nuevo@ejemplo.com\",\n  \"telefono\": \"+591 777 88899\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/users/{{userId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"users",
+						"{{userId}}"
+					]
+				},
+				"description": "Actualiza el nombre, email o teléfono del usuario con ID {{userId}}."
+			},
+			"response": []
+		},
+		{
+			"name": "6. Eliminar Usuario (DELETE /api/users/:id)",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/users/{{userId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"users",
+						"{{userId}}"
+					]
+				},
+				"description": "Elimina de memoria al usuario con ID {{userId}}."
+			},
+			"response": []
+		},
+		{
+			"name": "7. [Prueba Error 400] Campos incompletos",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"nombre\": \"\",\n  \"email\": \"incompleto@test.com\",\n  \"telefono\": \"\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/users",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"users"
+					]
+				},
+				"description": "Prueba de validación: debe responder con código HTTP 400 y mensaje de error."
+			},
+			"response": []
+		},
+		{
+			"name": "8. [Prueba Error 409] Email duplicado",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"nombre\": \"Ana Clon\",\n  \"email\": \"ana@example.com\",\n  \"telefono\": \"+591 700 00000\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/users",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"users"
+					]
+				},
+				"description": "Prueba de conflicto: intenta crear un usuario con el email ana@example.com que ya existe, debe retornar 409 Conflict."
+			},
+			"response": []
+		}
+	]
+}

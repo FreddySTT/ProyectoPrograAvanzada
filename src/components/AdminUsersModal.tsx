@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import type { Role } from "../types/auth";
+import { validatePasswordPolicy } from "../utils/security";
 
 interface AdminUsersModalProps {
   isOpen: boolean;
@@ -9,7 +10,16 @@ interface AdminUsersModalProps {
 }
 
 export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalProps) {
-  const { users, currentUser, adminCreateUser, adminUpdateUserRole, adminDeleteUser } = useAuth();
+  const {
+    users,
+    currentUser,
+    adminCreateUser,
+    adminUpdateUserRole,
+    adminUpdateUserStatus,
+    adminResetPassword,
+    adminDeleteUser,
+  } = useAuth();
+
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [loadingAction, setLoadingAction] = useState(false);
@@ -45,6 +55,12 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
     e.preventDefault();
     setFormError("");
 
+    const policy = validatePasswordPolicy(password);
+    if (!policy.isValid) {
+      setFormError(policy.message);
+      return;
+    }
+
     setLoadingAction(true);
     try {
       const res = await adminCreateUser({
@@ -71,6 +87,18 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
     }
   };
 
+  const handleResetPasswordPrompt = async (userId: string, targetName: string) => {
+    const newPass = prompt(`Introduce la nueva contraseña para ${targetName} (mínimo 8 caracteres, al menos 1 mayúscula y 1 signo):`);
+    if (!newPass) return;
+    const policy = validatePasswordPolicy(newPass);
+    if (!policy.isValid) {
+      alert(policy.message);
+      return;
+    }
+    const res = await adminResetPassword(userId, newPass);
+    if (onNotify) onNotify(res.message);
+  };
+
   const filteredUsers = users.filter((u) => {
     const q = searchTerm.toLowerCase();
     return (
@@ -89,7 +117,7 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full max-w-2xl overflow-hidden rounded-[28px] bg-white shadow-2xl border border-[#E2D9CC] flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-3xl overflow-hidden rounded-[28px] bg-white shadow-2xl border border-[#E2D9CC] flex flex-col max-h-[90vh]">
         {/* Top aguayo strip */}
         <div className="aguayo-strip h-2 w-full" />
 
@@ -99,11 +127,11 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
             <div className="flex items-center gap-2">
               <span className="text-xl">👥</span>
               <h2 className="font-subtitle text-xl font-extrabold text-[#37474F]">
-                Gestión de Usuarios en Cloud Firestore
+                Gestión de Usuarios & Seguridad Supabase
               </h2>
             </div>
             <p className="mt-1 text-xs text-[#6D4C41]">
-              Crea usuarios, asigna roles de Administrador o Turista Normal y supervisa el acceso con seguridad.
+              Administra roles (Admin, Editor, Turista), suspende cuentas y resetea contraseñas con cifrado SHA-256.
             </p>
           </div>
           <button
@@ -210,6 +238,7 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
                   className="w-full rounded-lg border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs focus:border-[#D81B60] focus:outline-none"
                 >
                   <option value="normal">Normal (Turista / Visitante)</option>
+                  <option value="editor">Editor (Gestor de Contenido)</option>
                   <option value="admin">Administrador (Control total)</option>
                 </select>
               </div>
@@ -223,11 +252,11 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
                 >
                   <option value="🎒">🎒 Turista</option>
                   <option value="👑">👑 Corona Admin</option>
+                  <option value="📝">📝 Editor</option>
                   <option value="🌸">🌸 Flor del Valle</option>
                   <option value="🏔️">🏔️ Tunari</option>
                   <option value="🦅">🦅 Cóndor</option>
-                  <option value="🚲">🚲 Bici</option>
-                  <option value="🥟">🥟 Salteña/Empanada</option>
+                  <option value="🥟">🥟 Salteña</option>
                 </select>
               </div>
             </div>
@@ -254,6 +283,8 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
             filteredUsers.map((u) => {
               const isMe = currentUser?.id === u.id || (currentUser?.uid && currentUser?.uid === u.uid);
               const isAdmin = u.role === "admin";
+              const isEditor = u.role === "editor";
+              const isSuspended = u.status === "suspended";
 
               return (
                 <div
@@ -262,10 +293,10 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
                 >
                   <div className="flex items-center gap-3">
                     <span className="h-10 w-10 rounded-full bg-white shadow-xs border border-[#E2D9CC] grid place-items-center text-xl shrink-0">
-                      {u.avatar || (isAdmin ? "👑" : "🎒")}
+                      {u.avatar || (isAdmin ? "👑" : isEditor ? "📝" : "🎒")}
                     </span>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-subtitle text-sm font-bold text-[#37474F]">
                           {u.name}
                         </span>
@@ -278,10 +309,21 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
                           className={`rounded-full px-2.5 py-0.5 text-[10px] font-subtitle font-bold ${
                             isAdmin
                               ? "bg-[#1E293B] text-[#F4C430]"
+                              : isEditor
+                              ? "bg-purple-100 text-purple-700"
                               : "bg-[#E0F2FE] text-[#0369A1]"
                           }`}
                         >
-                          {isAdmin ? "👑 Administrador" : "🎒 Normal / Turista"}
+                          {isAdmin ? "👑 Administrador" : isEditor ? "📝 Editor" : "🎒 Turista"}
+                        </span>
+                        <span
+                          className={`rounded-full px-2 py-0.2 text-[9px] font-bold ${
+                            isSuspended
+                              ? "bg-red-100 text-red-700 border border-red-200"
+                              : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                          }`}
+                        >
+                          {isSuspended ? "Suspendido" : "Activo"}
                         </span>
                       </div>
                       <p className="text-xs text-[#6D4C41]">
@@ -290,27 +332,57 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 self-end sm:self-center">
-                    {/* Switch role button */}
-                    <button
-                      onClick={async () => {
-                        const newRole = isAdmin ? "normal" : "admin";
+                  <div className="flex items-center gap-1.5 self-end sm:self-center flex-wrap">
+                    {/* Role changer dropdown */}
+                    <select
+                      value={u.role}
+                      onChange={async (e) => {
+                        const newRole = e.target.value as Role;
                         await adminUpdateUserRole(u.id, newRole);
                         if (onNotify) {
-                          onNotify(`Rol de @${u.username} actualizado a ${newRole === "admin" ? "Administrador" : "Turista Normal"}`);
+                          onNotify(`Rol de @${u.username} actualizado a ${newRole}.`);
                         }
                       }}
-                      className="rounded-lg border border-[#E2D9CC] bg-white px-2.5 py-1 text-[11px] font-subtitle font-bold text-[#37474F] hover:border-[#D81B60] hover:text-[#D81B60] transition"
-                      title="Cambiar entre Administrador y Normal"
+                      className="rounded-lg border border-[#E2D9CC] bg-white px-2 py-1 text-[11px] font-subtitle font-bold text-[#37474F] hover:border-[#D81B60] transition"
                     >
-                      {isAdmin ? "Degradar a Normal" : "Ascender a Admin"}
+                      <option value="normal">Turista</option>
+                      <option value="editor">Editor</option>
+                      <option value="admin">Admin</option>
+                    </select>
+
+                    {/* Suspend / Activate toggle */}
+                    {!isMe && (
+                      <button
+                        onClick={async () => {
+                          const newStatus = isSuspended ? "active" : "suspended";
+                          const res = await adminUpdateUserStatus(u.id, newStatus);
+                          if (onNotify) onNotify(res.message);
+                        }}
+                        className={`rounded-lg px-2 py-1 text-[11px] font-bold transition ${
+                          isSuspended
+                            ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                            : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                        }`}
+                        title={isSuspended ? "Reactivar cuenta" : "Suspender cuenta"}
+                      >
+                        {isSuspended ? "Reactivar" : "Suspender"}
+                      </button>
+                    )}
+
+                    {/* Reset password button */}
+                    <button
+                      onClick={() => handleResetPasswordPrompt(u.id, u.name)}
+                      className="rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 px-2 py-1 text-[11px] font-bold transition"
+                      title="Restablecer contraseña"
+                    >
+                      🔑 Reset
                     </button>
 
                     {/* Delete button (cannot delete yourself) */}
                     {!isMe && (
                       <button
                         onClick={async () => {
-                          if (confirm(`¿Eliminar al usuario @${u.username}?`)) {
+                          if (confirm(`¿Eliminar permanentemente al usuario @${u.username}?`)) {
                             const res = await adminDeleteUser(u.id);
                             if (onNotify) onNotify(res.message);
                           }
@@ -330,7 +402,9 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
 
         {/* Footer */}
         <div className="p-4 border-t border-[#E8E3D8] bg-[#FAF7F2] flex items-center justify-between text-xs text-[#6D4C41]">
-          <span>Total de usuarios: <strong>{users.length}</strong> (Admins: {users.filter(u => u.role === "admin").length})</span>
+          <span>
+            Total de usuarios: <strong>{users.length}</strong> (Admins: {users.filter(u => u.role === "admin").length}, Editores: {users.filter(u => u.role === "editor").length})
+          </span>
           <button
             onClick={onClose}
             className="rounded-full bg-[#1E293B] text-white px-5 py-2 font-subtitle font-bold hover:bg-[#334155] transition"

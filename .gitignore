@@ -22,3 +22,14 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# Supabase secrets
+.env
+*.env.local
+
+# Docker runtime secrets
+.env.docker
+
+# Python cache (flask-crud)
+flask-crud/__pycache__/
+flask-crud/*.pyc

@@ -1,4 +1,4 @@
-export type Role = "normal" | "admin";
+export type Role = "normal" | "admin" | "editor";
 
 export interface User {
   id: string;
@@ -6,8 +6,9 @@ export interface User {
   username: string;
   name: string;
   email: string;
-  password?: string;
+  passwordHash?: string;
   role: Role;
+  status?: "active" | "suspended";
   avatar: string;
   createdAt: string;
   lastLogin?: string;
@@ -42,7 +43,20 @@ export interface Announcement {
 export interface SecurityLog {
   id: string;
   timestamp: string;
-  event: "LOGIN_SUCCESS" | "LOGIN_FAILED" | "ADMIN_PORTAL_ACCESS" | "ADMIN_ELEVATION" | "ROLE_UPDATED" | "LOGOUT" | "BLOCKED_ATTEMPT";
+  event:
+    | "LOGIN_SUCCESS"
+    | "LOGIN_FAILED"
+    | "ADMIN_PORTAL_ACCESS"
+    | "ADMIN_ELEVATION"
+    | "ROLE_UPDATED"
+    | "USER_REGISTERED"
+    | "USER_SUSPENDED"
+    | "USER_ACTIVATED"
+    | "PASSWORD_RESET"
+    | "PURGE_STORAGE"
+    | "STORAGE_MODE_CHANGED"
+    | "LOGOUT"
+    | "BLOCKED_ATTEMPT";
   userEmail: string;
   role?: string;
   status: "OK" | "WARNING" | "BLOCKED";
