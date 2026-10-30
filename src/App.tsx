@@ -29,6 +29,7 @@ import { TripPlannerSection } from "./components/organisms/TripPlannerSection/Tr
 import { Footer } from "./components/organisms/Footer/Footer";
 import { ImageZoomModal, type ZoomModalData } from "./components/molecules/ImageZoomModal/ImageZoomModal";
 import { PaymentModal } from "./components/organisms/PaymentModal/PaymentModal";
+import { PlaceDetailModal } from "./components/molecules/PlaceDetailModal/PlaceDetailModal";
 import { ZoomImage } from "./components/atoms/ZoomImage/ZoomImage";
 import type { SearchOption } from "./components/molecules/SearchCombobox/SearchCombobox";
 import { Icon } from "./components/atoms/Icon/Icon";
@@ -147,6 +148,7 @@ function CategoryPage({
   favorites,
   toggleFavorite,
   onZoomClick,
+  onOpenDetail,
   onBookExperience,
 }: {
   category: CategoryKey;
@@ -154,6 +156,7 @@ function CategoryPage({
   favorites: string[];
   toggleFavorite: (title: string) => void;
   onZoomClick: (data: ZoomModalData) => void;
+  onOpenDetail: (title: string) => void;
   onBookExperience: (title: string) => void;
 }) {
   const data = categoryPages[category];
@@ -240,7 +243,7 @@ function CategoryPage({
           )}
         </section>
 
-        {/* Experience Cards with ZoomImage everywhere */}
+        {/* Experience Cards with ZoomImage & Guide Popup */}
         <section className="mx-auto max-w-[1240px] px-5 py-16 lg:px-8">
           <div className="mb-9 flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div>
@@ -286,6 +289,25 @@ function CategoryPage({
                       }
                     />
 
+                    {/* Quick Zoom Lens Button */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onZoomClick({
+                          src: item.image,
+                          title: item.title,
+                          area: item.place,
+                          tag: item.label,
+                          category,
+                        })
+                      }
+                      className="absolute left-3.5 bottom-3.5 z-20 flex items-center gap-1.5 rounded-full bg-[#1E293B]/85 hover:bg-[#D81B60] text-white px-3 py-1 text-[11px] font-subtitle font-black backdrop-blur-md shadow-lg border border-white/30 transition hover:scale-105"
+                      title="Ver foto en alta resolución con lupa de zoom"
+                    >
+                      <span>🔍</span>
+                      <span>Zoom Lupa</span>
+                    </button>
+
                     <span className="absolute left-4 top-4 rounded-full px-3 py-1 font-subtitle text-[10px] font-extrabold uppercase tracking-wider text-white shadow-md pointer-events-none" style={{ backgroundColor: data.accent }}>
                       {item.label}
                     </span>
@@ -309,18 +331,30 @@ function CategoryPage({
                       <div className="mb-2 flex items-center gap-2 text-xs font-medium text-[#6D4C41]">
                         <Icon name="pin" size={14} /> {item.place}
                       </div>
-                      <h3 className="font-subtitle text-xl font-bold text-[#37474F]">{item.title}</h3>
+                      <h3
+                        onClick={() => onOpenDetail(item.title)}
+                        className="font-subtitle text-xl font-bold text-[#37474F] hover:text-[#D81B60] transition cursor-pointer"
+                        title="Ver qué ver y hacer en este lugar"
+                      >
+                        {item.title}
+                      </h3>
                     </div>
 
                     <div className="mt-5 flex items-center justify-between border-t border-[#E8E3D8] pt-4 text-xs">
-                      <span className="flex items-center gap-1.5 text-[#6D4C41]"><Icon name="clock" size={15} /> {item.duration}</span>
+                      <button
+                        type="button"
+                        onClick={() => onOpenDetail(item.title)}
+                        className="font-subtitle font-bold text-[#D81B60] hover:underline flex items-center gap-1"
+                      >
+                        <span>Ver qué ver aquí</span>
+                        <span>→</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => onBookExperience(item.title)}
-                        className="flex items-center gap-1 font-subtitle font-bold hover:underline"
-                        style={{ color: data.accent }}
+                        className="rounded-xl bg-[#D81B60] text-white px-3.5 py-1.5 font-subtitle font-bold hover:bg-[#b0144c] transition shadow-xs"
                       >
-                        Reservar <Icon name="arrow" size={15} />
+                        Reservar
                       </button>
                     </div>
                   </div>
@@ -383,6 +417,10 @@ function MainApp() {
   // Zoom Modal State
   const [zoomModalData, setZoomModalData] = useState<ZoomModalData | null>(null);
   const [isZoomModalOpen, setIsZoomModalOpen] = useState(false);
+
+  // Place Detail Guide Modal State (Qué ver aquí)
+  const [selectedDetailPlace, setSelectedDetailPlace] = useState<PlaceItem | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   // Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -536,7 +574,23 @@ function MainApp() {
     setIsZoomModalOpen(true);
   };
 
-  // ─── Payment helpers ───────────────────────────────────────────────────────
+  // ─── Place Detail Guide helper ─────────────────────────────────────────────
+  const openPlaceDetailModal = (place: PlaceItem) => {
+    setSelectedDetailPlace(place);
+    setIsDetailModalOpen(true);
+  };
+
+  const openPlaceDetailByTitle = (title: string) => {
+    const match = places.find((p) => p.title.toLowerCase().includes(title.toLowerCase()));
+    if (match) {
+      setSelectedDetailPlace(match);
+      setIsDetailModalOpen(true);
+    } else {
+      notify(`Información detallada para: ${title}`);
+    }
+  };
+
+  // ─── Payment helpers (Booking Style) ───────────────────────────────────────
   const openPaymentModal = (place?: PlaceItem) => {
     setPaymentTargetPlace(place || places[0] || null);
     setIsPaymentModalOpen(true);
@@ -578,6 +632,7 @@ function MainApp() {
           setZoomModalData(data);
           setIsZoomModalOpen(true);
         }}
+        onOpenDetail={openPlaceDetailByTitle}
         onBookExperience={(title) => {
           const match = places.find((p) => p.title.toLowerCase().includes(title.toLowerCase()));
           openPaymentModal(match || places[0]);
@@ -613,7 +668,7 @@ function MainApp() {
       />
 
       <main>
-        {/* Hero Section with smart search bar (now fully unclipped) */}
+        {/* Hero Section with smart search bar */}
         <HeroSection
           places={places}
           searchQuery={searchQuery}
@@ -631,7 +686,7 @@ function MainApp() {
         {/* Quick Category Cards */}
         <QuickCategorySection onSelectCategory={setActiveCategory} />
 
-        {/* Featured Destinations with Cursor Magnifier Zoom + Quick Search */}
+        {/* Featured Destinations with Cursor Magnifier Zoom + Place Detail Guide */}
         <PlacesSection
           places={places}
           filteredPlaces={filteredPlaces}
@@ -645,7 +700,7 @@ function MainApp() {
           onToggleFavorite={toggleFavorite}
           onZoomClick={openZoomModal}
           onBookClick={(place) => openPaymentModal(place)}
-          onDetailsClick={(place) => notify(`Abriendo detalles: ${place.title}`)}
+          onDetailsClick={openPlaceDetailModal}
           onOpenNewPlaceModal={openNewPlaceModal}
           onToggleFeatured={handleToggleFeatured}
           onEditPlace={openEditPlaceModal}
@@ -767,7 +822,21 @@ function MainApp() {
         onClose={() => setIsZoomModalOpen(false)}
       />
 
-      {/* ── Payment & Reservation Modal ── */}
+      {/* ── Creative Place Detail Guide Modal (Qué ver aquí) ── */}
+      <PlaceDetailModal
+        isOpen={isDetailModalOpen}
+        place={selectedDetailPlace}
+        isFavorite={selectedDetailPlace ? favorites.includes(selectedDetailPlace.title) : false}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedDetailPlace(null);
+        }}
+        onToggleFavorite={toggleFavorite}
+        onOpenZoomModal={openZoomModal}
+        onOpenBookingPayment={(place) => openPaymentModal(place)}
+      />
+
+      {/* ── Payment & Reservation Modal (Booking Style) ── */}
       <PaymentModal
         isOpen={isPaymentModalOpen}
         place={paymentTargetPlace}
