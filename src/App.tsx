@@ -20,7 +20,7 @@ import {
 } from "./supabase/services";
 import type { PlaceItem, Announcement } from "./types/auth";
 
-// ─── New Atomic / Molecular / Organism components ────────────────────────────
+// ─── Atomic / Molecular / Organism components ────────────────────────────────
 import { Navbar } from "./components/organisms/Navbar/Navbar";
 import { HeroSection } from "./components/organisms/HeroSection/HeroSection";
 import { QuickCategorySection } from "./components/organisms/QuickCategorySection/QuickCategorySection";
@@ -29,28 +29,34 @@ import { TripPlannerSection } from "./components/organisms/TripPlannerSection/Tr
 import { Footer } from "./components/organisms/Footer/Footer";
 import { ImageZoomModal, type ZoomModalData } from "./components/molecules/ImageZoomModal/ImageZoomModal";
 import { PaymentModal } from "./components/organisms/PaymentModal/PaymentModal";
+import { ZoomImage } from "./components/atoms/ZoomImage/ZoomImage";
 import type { SearchOption } from "./components/molecules/SearchCombobox/SearchCombobox";
-import type { IconName } from "./components/atoms/Icon/Icon";
 import { Icon } from "./components/atoms/Icon/Icon";
 
 // ─── Images ───────────────────────────────────────────────────────────────────
-import heroImage from "./assets/cochabamba-hero.jpg";
-import adventureBikeImage from "./assets/aventura-bici.jpg";
-import adventureHikeImage from "./assets/aventura-caminata.jpg";
-import cultureStreetImage from "./assets/cultura-calle.jpg";
-import cultureDanceImage from "./assets/cultura-danza.jpg";
+import natureValleyImage from "./assets/naturaleza-valle.jpg";
+import natureGreenImage from "./assets/naturaleza-verde.jpg";
+import tunariImage from "./assets/tunari.jpg";
 import foodDishesImage from "./assets/comida-platos.jpg";
 import foodTraditionalImage from "./assets/comida-tradicional.jpg";
 import foodImage from "./assets/gastronomia.jpg";
-import heritageImage from "./assets/patrimonio.jpg";
-import natureValleyImage from "./assets/naturaleza-valle.jpg";
-import natureGreenImage from "./assets/naturaleza-verde.jpg";
-import traditionImage from "./assets/tradicion.jpg";
-import tunariImage from "./assets/tunari.jpg";
 import saltenaImage from "./assets/gastronomia-saltena.jpg";
+import heritageImage from "./assets/patrimonio.jpg";
+import cultureDanceImage from "./assets/cultura-danza.jpg";
+import cultureStreetImage from "./assets/cultura-calle.jpg";
+import adventureHikeImage from "./assets/aventura-caminata.jpg";
+import adventureBikeImage from "./assets/aventura-bici.jpg";
 
 // ─── Type Definitions ─────────────────────────────────────────────────────────
 type CategoryKey = "naturaleza" | "gastronomia" | "cultura" | "aventura";
+
+// Normalizador de texto para búsquedas
+const cleanText = (s: string) =>
+  (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
 
 // ─── Category Page Data ───────────────────────────────────────────────────────
 const categoryPages: Record<CategoryKey, {
@@ -121,7 +127,7 @@ const categoryPages: Record<CategoryKey, {
   },
 };
 
-// ─── Inline small SVG helpers (kept here to avoid dependency cycles) ──────────
+// ─── Andean Diamond SVG helper ───────────────────────────────────────────────
 function AndeanDiamond({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="shrink-0 inline-block" aria-hidden="true">
@@ -134,17 +140,21 @@ function AndeanDiamond({ size = 20 }: { size?: number }) {
   );
 }
 
-// ─── Category Page (sub-view) ─────────────────────────────────────────────────
+// ─── Category Page (sub-view) with interactive Zoom on every food / place card ──
 function CategoryPage({
   category,
   onBack,
   favorites,
   toggleFavorite,
+  onZoomClick,
+  onBookExperience,
 }: {
   category: CategoryKey;
   onBack: () => void;
   favorites: string[];
   toggleFavorite: (title: string) => void;
+  onZoomClick: (data: ZoomModalData) => void;
+  onBookExperience: (title: string) => void;
 }) {
   const data = categoryPages[category];
   const [showAlternateHero, setShowAlternateHero] = useState(false);
@@ -230,12 +240,15 @@ function CategoryPage({
           )}
         </section>
 
-        {/* Experience Cards */}
+        {/* Experience Cards with ZoomImage everywhere */}
         <section className="mx-auto max-w-[1240px] px-5 py-16 lg:px-8">
           <div className="mb-9 flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div>
               <p className="eyebrow">—— SELECCIÓN LOCAL</p>
               <h2 className="section-title">Experiencias imperdibles</h2>
+              <p className="text-xs text-[#6D4C41] mt-1 font-medium">
+                Pasa el cursor sobre cualquier imagen para hacer <strong>zoom dinámico</strong> o haz clic para ver en pantalla completa.
+              </p>
             </div>
             <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
               {data.filters.map((filter, index) => (
@@ -255,33 +268,59 @@ function CategoryPage({
             {data.highlights.map((item, index) => {
               const favorite = favorites.includes(item.title);
               return (
-                <article key={item.title} className="group overflow-hidden rounded-[24px] bg-white border border-[#E2D9CC] shadow-md hover:shadow-xl transition">
+                <article key={item.title} className="group overflow-hidden rounded-[24px] bg-white border border-[#E2D9CC] shadow-md hover:shadow-xl transition flex flex-col justify-between">
                   <div className="relative h-60 overflow-hidden">
-                    <img src={item.image} alt={item.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                    <span className="absolute left-4 top-4 rounded-full px-3 py-1 font-subtitle text-[10px] font-extrabold uppercase tracking-wider text-white shadow-md" style={{ backgroundColor: data.accent }}>
+                    {/* ZoomImage with Cursor Magnifier */}
+                    <ZoomImage
+                      src={item.image}
+                      alt={item.title}
+                      containerClassName="relative h-full w-full overflow-hidden group cursor-crosshair"
+                      onZoomClick={() =>
+                        onZoomClick({
+                          src: item.image,
+                          title: item.title,
+                          area: item.place,
+                          tag: item.label,
+                          category,
+                        })
+                      }
+                    />
+
+                    <span className="absolute left-4 top-4 rounded-full px-3 py-1 font-subtitle text-[10px] font-extrabold uppercase tracking-wider text-white shadow-md pointer-events-none" style={{ backgroundColor: data.accent }}>
                       {item.label}
                     </span>
+
                     <button
                       type="button"
                       onClick={() => toggleFavorite(item.title)}
-                      className={`absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full transition shadow-md ${favorite ? "bg-[#D81B60] text-white" : "bg-white/90 text-[#37474F] hover:bg-white"}`}
+                      className={`absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full transition shadow-md z-10 ${favorite ? "bg-[#D81B60] text-white" : "bg-white/90 text-[#37474F] hover:bg-white"}`}
                       aria-label={`Guardar ${item.title}`}
                     >
                       <Icon name="heart" size={18} filled={favorite} />
                     </button>
-                    <span className="absolute bottom-1 left-3 font-display text-[64px] leading-none font-bold text-white/30 select-none">
+
+                    <span className="absolute bottom-1 left-3 font-display text-[64px] leading-none font-bold text-white/30 select-none pointer-events-none">
                       0{index + 1}
                     </span>
                   </div>
-                  <div className="p-6">
-                    <div className="mb-2 flex items-center gap-2 text-xs font-medium text-[#6D4C41]">
-                      <Icon name="pin" size={14} /> {item.place}
+
+                  <div className="p-6 flex-1 flex flex-col justify-between">
+                    <div>
+                      <div className="mb-2 flex items-center gap-2 text-xs font-medium text-[#6D4C41]">
+                        <Icon name="pin" size={14} /> {item.place}
+                      </div>
+                      <h3 className="font-subtitle text-xl font-bold text-[#37474F]">{item.title}</h3>
                     </div>
-                    <h3 className="font-subtitle text-xl font-bold text-[#37474F]">{item.title}</h3>
+
                     <div className="mt-5 flex items-center justify-between border-t border-[#E8E3D8] pt-4 text-xs">
                       <span className="flex items-center gap-1.5 text-[#6D4C41]"><Icon name="clock" size={15} /> {item.duration}</span>
-                      <button type="button" className="flex items-center gap-1 font-subtitle font-bold hover:underline" style={{ color: data.accent }}>
-                        Ver detalles <Icon name="arrow" size={15} />
+                      <button
+                        type="button"
+                        onClick={() => onBookExperience(item.title)}
+                        className="flex items-center gap-1 font-subtitle font-bold hover:underline"
+                        style={{ color: data.accent }}
+                      >
+                        Reservar <Icon name="arrow" size={15} />
                       </button>
                     </div>
                   </div>
@@ -402,27 +441,21 @@ function MainApp() {
 
   const handleSearch = () => {
     const activityText = searchQuery ? ` "${searchQuery}"` : "";
-    const q = searchQuery.trim().toLowerCase();
-    if (q) {
-      // Filter the places grid on search
-      const match = places.find((p) =>
-        p.title.toLowerCase().includes(q) ||
-        p.area.toLowerCase().includes(q) ||
-        p.tag.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q)
-      );
-      if (match) setSelectedFilter("todos");
-    }
     notify(`Buscando experiencias${activityText} para ${travelers} entre el ${dateRange.label}.`);
+    const elem = document.getElementById("destacados");
+    if (elem) elem.scrollIntoView({ behavior: "smooth" });
   };
 
   const handleSelectSearchOption = (option: SearchOption) => {
+    setSearchQuery(option.title);
     if (option.category && ["naturaleza", "gastronomia", "cultura", "aventura"].includes(option.category)) {
       setSelectedFilter(option.category);
     } else {
       setSelectedFilter("todos");
     }
     notify(`Mostrando: ${option.title}`);
+    const elem = document.getElementById("destacados");
+    if (elem) elem.scrollIntoView({ behavior: "smooth" });
   };
 
   // ─── Place CRUD ────────────────────────────────────────────────────────────
@@ -456,23 +489,38 @@ function MainApp() {
   const openNewPlaceModal = () => { setEditingPlace(null); setIsAdminPlaceModalOpen(true); };
   const openEditPlaceModal = (place: PlaceItem) => { setEditingPlace(place); setIsAdminPlaceModalOpen(true); };
 
-  // ─── Filtered places (considers searchQuery + selectedFilter) ──────────────
+  // ─── Filtered places (considers searchQuery + selectedFilter with accent-insensitivity) ───
   const filteredPlaces = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = cleanText(searchQuery);
+
     return places.filter((p) => {
       const matchesFilter =
         selectedFilter === "todos" ||
         (selectedFilter === "destacados" && !!p.featured) ||
         p.category === selectedFilter;
 
-      const matchesSearch = !q || (
-        p.title.toLowerCase().includes(q) ||
-        p.area.toLowerCase().includes(q) ||
-        p.tag.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q)
-      );
+      if (!matchesFilter) return false;
+      if (!q) return true;
 
-      return matchesFilter && matchesSearch;
+      const titleNorm = cleanText(p.title);
+      const areaNorm = cleanText(p.area);
+      const tagNorm = cleanText(p.tag);
+      const catNorm = cleanText(p.category);
+
+      // Sinónimos ampliados
+      if (q === "comer" || q === "comida") {
+        return catNorm.includes("gastro") || titleNorm.includes("silpancho") || titleNorm.includes("cancha") || titleNorm.includes("pique");
+      }
+      if (q === "ver" || q === "visitar") {
+        return catNorm.includes("cultura") || titleNorm.includes("cristo") || titleNorm.includes("portales") || titleNorm.includes("tunari");
+      }
+
+      return (
+        titleNorm.includes(q) ||
+        areaNorm.includes(q) ||
+        tagNorm.includes(q) ||
+        catNorm.includes(q)
+      );
     });
   }, [places, selectedFilter, searchQuery]);
 
@@ -519,13 +567,21 @@ function MainApp() {
     );
   }
 
-  // ─── Category sub-page ────────────────────────────────────────────────────
+  // ─── Category sub-page with ZoomImage support ──────────────────────────────
   if (activeCategory) {
     return (
       <CategoryPage
         category={activeCategory}
         favorites={favorites}
         toggleFavorite={toggleFavorite}
+        onZoomClick={(data) => {
+          setZoomModalData(data);
+          setIsZoomModalOpen(true);
+        }}
+        onBookExperience={(title) => {
+          const match = places.find((p) => p.title.toLowerCase().includes(title.toLowerCase()));
+          openPaymentModal(match || places[0]);
+        }}
         onBack={() => { setActiveCategory(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}
       />
     );
@@ -557,7 +613,7 @@ function MainApp() {
       />
 
       <main>
-        {/* Hero Section with smart search bar */}
+        {/* Hero Section with smart search bar (now fully unclipped) */}
         <HeroSection
           places={places}
           searchQuery={searchQuery}
@@ -575,7 +631,7 @@ function MainApp() {
         {/* Quick Category Cards */}
         <QuickCategorySection onSelectCategory={setActiveCategory} />
 
-        {/* Featured Destinations with Zoom + Book */}
+        {/* Featured Destinations with Cursor Magnifier Zoom + Quick Search */}
         <PlacesSection
           places={places}
           filteredPlaces={filteredPlaces}
@@ -583,6 +639,7 @@ function MainApp() {
           selectedFilter={selectedFilter}
           onFilterChange={setSelectedFilter}
           searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
           onClearSearch={() => setSearchQuery("")}
           isEffectiveAdmin={isEffectiveAdmin}
           onToggleFavorite={toggleFavorite}
@@ -703,7 +760,7 @@ function MainApp() {
         onClose={() => setIsCalendarOpen(false)}
       />
 
-      {/* ── Image Zoom Viewer Modal ── */}
+      {/* ── Image Zoom Viewer Modal (Works for places, food, and categories) ── */}
       <ImageZoomModal
         isOpen={isZoomModalOpen}
         data={zoomModalData}

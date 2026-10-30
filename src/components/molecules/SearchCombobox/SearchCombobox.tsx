@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Icon } from "../../atoms/Icon/Icon";
-import { Badge } from "../../atoms/Badge/Badge";
 import type { PlaceItem } from "../../../types/auth";
 
 export interface SearchOption {
@@ -11,6 +10,7 @@ export interface SearchOption {
   category?: string;
   image?: string;
   tag?: string;
+  rating?: string;
 }
 
 interface SearchComboboxProps {
@@ -21,28 +21,50 @@ interface SearchComboboxProps {
   placeholder?: string;
 }
 
+// Normalizador insensible a acentos, diacríticos y mayúsculas
+const cleanStr = (s: string) =>
+  (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
 export const SearchCombobox: React.FC<SearchComboboxProps> = ({
   places,
   value,
   onChange,
   onSelectOption,
-  placeholder = "Gastronomía, trekking, museos, San Pedro...",
+  placeholder = "Escribe: tunari, silpancho, cristo, canchas...",
 }) => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Generar opciones indexadas a partir de los datos disponibles
+  // Generar índice completo de opciones
   const indexedOptions = useMemo<SearchOption[]>(() => {
     const list: SearchOption[] = [];
 
-    // Categorías predefinidas
+    // 1. Lugares turísticos
+    places.forEach((p) => {
+      list.push({
+        id: `place-${p.id}`,
+        type: "place",
+        title: p.title,
+        subtitle: `${p.area} · ${p.category?.toUpperCase() || ""}`,
+        category: p.category,
+        image: p.image,
+        tag: p.tag,
+        rating: p.rating,
+      });
+    });
+
+    // 2. Categorías temáticas principales
     const categories = [
-      { id: "cat-gastronomia", title: "Gastronomía", subtitle: "Sabores, salteñas y chicharrón de la Llajta", category: "gastronomia" },
-      { id: "cat-cultura", title: "Cultura & Historia", subtitle: "Museos, palacios y monumentos icónicos", category: "cultura" },
-      { id: "cat-naturaleza", title: "Naturaleza & Valles", subtitle: "Lagunas, cordilleras y aire puro", category: "naturaleza" },
-      { id: "cat-aventura", title: "Aventura & Trekking", subtitle: "Ciclismo de montaña, senderos y miradores", category: "aventura" },
+      { id: "cat-gastronomia", title: "Gastronomía Cochabambina", subtitle: "Silpancho, salteñas, chicharrón y mercados", category: "gastronomia" },
+      { id: "cat-cultura", title: "Cultura & Patrimonio", subtitle: "Cristo de la Concordia, Palacio Portales y templos", category: "cultura" },
+      { id: "cat-naturaleza", title: "Naturaleza & Cordillera", subtitle: "Parque Tunari, lagunas y valles fértiles", category: "naturaleza" },
+      { id: "cat-aventura", title: "Aventura & Senderismo", subtitle: "Trekking en altura, descenso en bici y miradores", category: "aventura" },
     ];
     categories.forEach((c) => {
       list.push({
@@ -54,54 +76,66 @@ export const SearchCombobox: React.FC<SearchComboboxProps> = ({
       });
     });
 
-    // Lugares
-    places.forEach((p) => {
-      list.push({
-        id: `place-${p.id}`,
-        type: "place",
-        title: p.title,
-        subtitle: `${p.area} · ${p.category}`,
-        category: p.category,
-        image: p.image,
-        tag: p.tag,
-      });
-    });
-
-    // Áreas únicas
+    // 3. Áreas / Zonas
     const areas = Array.from(new Set(places.map((p) => p.area).filter(Boolean)));
     areas.forEach((area) => {
       list.push({
         id: `area-${area}`,
         type: "area",
         title: area,
-        subtitle: "Zona turística destacada",
+        subtitle: "Zona y circuito turístico",
       });
     });
 
     return list;
   }, [places]);
 
-  // Filtrar opciones dinámicamente según lo que escribe el usuario
+  // Filtrado reactivo en tiempo real al tipear cualquier letra
   const filteredSuggestions = useMemo(() => {
-    const query = value.trim().toLowerCase();
-    if (!query) {
-      // Si no ha escrito nada, sugerencias destacadas
+    const q = cleanStr(value);
+    if (!q) {
+      // Sugerencias inmediatas al hacer foco sin escribir
       return indexedOptions.slice(0, 6);
     }
 
+    // Sinónimos comunes para mejorar la búsqueda
+    const synonyms: Record<string, string[]> = {
+      comer: ["gastronomia", "silpancho", "pique", "saltena", "cancha", "platos"],
+      comida: ["gastronomia", "silpancho", "pique", "saltena", "cancha"],
+      almuerzo: ["gastronomia", "silpancho", "chicharron"],
+      ver: ["cultura", "cristo", "portales", "tunari", "mirador"],
+      visitar: ["cultura", "cristo", "portales", "tunari"],
+      montana: ["tunari", "naturaleza", "aventura", "cordillera"],
+      cerro: ["san pedro", "cristo", "tunari"],
+    };
+
+    // Términos expandidos si aplica
+    let expandedTerms = [q];
+    Object.entries(synonyms).forEach(([keyword, related]) => {
+      if (q.includes(keyword) || keyword.includes(q)) {
+        expandedTerms = [...expandedTerms, ...related];
+      }
+    });
+
     return indexedOptions
       .filter((opt) => {
-        return (
-          opt.title.toLowerCase().includes(query) ||
-          opt.subtitle.toLowerCase().includes(query) ||
-          (opt.category && opt.category.toLowerCase().includes(query)) ||
-          (opt.tag && opt.tag.toLowerCase().includes(query))
+        const titleNorm = cleanStr(opt.title);
+        const subNorm = cleanStr(opt.subtitle);
+        const catNorm = cleanStr(opt.category || "");
+        const tagNorm = cleanStr(opt.tag || "");
+
+        return expandedTerms.some(
+          (t) =>
+            titleNorm.includes(t) ||
+            subNorm.includes(t) ||
+            catNorm.includes(t) ||
+            tagNorm.includes(t)
         );
       })
       .slice(0, 8);
   }, [value, indexedOptions]);
 
-  // Cerrar dropdown al hacer clic afuera
+  // Cierre al hacer click fuera
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -164,6 +198,7 @@ export const SearchCombobox: React.FC<SearchComboboxProps> = ({
             setHighlightedIndex(-1);
           }}
           onFocus={() => setIsOpen(true)}
+          onClick={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           aria-label="Buscar experiencia turística"
@@ -183,18 +218,31 @@ export const SearchCombobox: React.FC<SearchComboboxProps> = ({
         )}
       </div>
 
-      {/* Autocomplete Suggestions Dropdown Popup */}
+      {/* Autocomplete Dropdown Popup - Floating & Never clipped */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-3 z-50 rounded-2xl bg-white p-2 shadow-2xl border border-[#E2D9CC] overflow-hidden max-h-[380px] overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150">
-          <div className="px-3 py-1.5 text-[10px] font-subtitle font-bold text-[#6D4C41] uppercase tracking-wider flex items-center justify-between border-b border-[#E2D9CC]/50 mb-1">
-            <span>{value ? `Resultados sugeridos (${filteredSuggestions.length})` : "Sugerencias populares"}</span>
-            <span className="text-[9px] text-[#D81B60]">Usa ↑↓ para navegar</span>
+        <div className="absolute left-0 mt-3 z-[9999] w-[calc(100vw-2rem)] sm:w-[480px] lg:w-[540px] max-w-[92vw] rounded-2xl bg-white p-2.5 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.4)] border-2 border-[#E2D9CC] overflow-hidden max-h-[390px] overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="px-3 py-1.5 text-[10px] font-subtitle font-black text-[#6D4C41] uppercase tracking-wider flex items-center justify-between border-b border-[#E2D9CC]/60 mb-1">
+            <span>
+              {value
+                ? `Resultados encontrados (${filteredSuggestions.length})`
+                : "Destinos y sabores sugeridos"}
+            </span>
+            <span className="text-[10px] text-[#D81B60] font-bold">Usa ↑↓ o clic</span>
           </div>
 
           {filteredSuggestions.length === 0 ? (
-            <div className="p-4 text-center text-xs text-[#6D4C41]">
-              <p className="font-bold">No encontramos coincidencias para "{value}"</p>
-              <p className="mt-1 text-[11px] text-gray-500">Prueba buscando por "Tunari", "Gastronomía", "Cala Cala" o "Cultura".</p>
+            <div className="p-5 text-center text-xs text-[#6D4C41]">
+              <div className="mx-auto mb-2 grid h-10 w-10 place-items-center rounded-full bg-[#FFF1F2] text-[#D81B60]">
+                <Icon name="search" size={20} />
+              </div>
+              <p className="font-bold text-sm text-[#37474F]">No encontramos "{value}"</p>
+              <p className="mt-1 text-[11px] text-gray-500">
+                Prueba con: <span className="font-semibold text-[#D81B60]">tunari</span>,{" "}
+                <span className="font-semibold text-[#D81B60]">cristo</span>,{" "}
+                <span className="font-semibold text-[#D81B60]">silpancho</span>,{" "}
+                <span className="font-semibold text-[#D81B60]">cancha</span> o{" "}
+                <span className="font-semibold text-[#D81B60]">portales</span>.
+              </p>
             </div>
           ) : (
             filteredSuggestions.map((item, idx) => {
@@ -206,46 +254,51 @@ export const SearchCombobox: React.FC<SearchComboboxProps> = ({
                   onClick={() => selectOption(item)}
                   onMouseEnter={() => setHighlightedIndex(idx)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition ${
-                    isSelected ? "bg-[#FFF1F2] text-[#D81B60]" : "hover:bg-[#FAF7F2] text-[#37474F]"
+                    isSelected ? "bg-[#FFF1F2] text-[#D81B60] scale-[1.01]" : "hover:bg-[#FAF7F2] text-[#37474F]"
                   }`}
                 >
-                  {/* Thumbnail / Icon Badge */}
+                  {/* Thumbnail Image / Icon */}
                   {item.image ? (
                     <img
                       src={item.image}
                       alt={item.title}
-                      className="h-10 w-10 rounded-lg object-cover shrink-0 shadow-xs ring-1 ring-[#E2D9CC]"
+                      className="h-11 w-11 rounded-xl object-cover shrink-0 shadow-sm ring-2 ring-[#E2D9CC]"
                     />
                   ) : (
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#FAF7F2] text-[#D81B60] border border-[#E2D9CC]">
+                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#FAF7F2] text-[#D81B60] border border-[#E2D9CC]">
                       {item.type === "category" ? (
-                        <Icon name="compass" size={18} />
+                        <Icon name="compass" size={20} />
                       ) : item.type === "area" ? (
-                        <Icon name="pin" size={18} />
+                        <Icon name="pin" size={20} />
                       ) : (
-                        <Icon name="search" size={18} />
+                        <Icon name="search" size={20} />
                       )}
                     </div>
                   )}
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-subtitle text-xs sm:text-sm font-extrabold truncate">
+                      <span className="font-subtitle text-xs sm:text-sm font-black truncate">
                         {item.title}
                       </span>
+                      {item.rating && (
+                        <span className="flex items-center text-[10px] font-bold text-[#F7931E]">
+                          ★ {item.rating}
+                        </span>
+                      )}
                       {item.tag && (
-                        <span className="rounded-full bg-[#D81B60]/10 px-2 py-0.5 text-[9px] font-bold text-[#D81B60] shrink-0">
+                        <span className="rounded-full bg-[#D81B60]/10 px-2 py-0.5 text-[9px] font-bold text-[#D81B60] shrink-0 border border-[#D81B60]/20">
                           {item.tag}
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-[#6D4C41] truncate mt-0.5">
+                    <p className="text-[11px] text-[#6D4C41] truncate mt-0.5 font-medium">
                       {item.subtitle}
                     </p>
                   </div>
 
-                  <span className="text-xs text-[#D81B60] shrink-0 font-bold">
-                    →
+                  <span className="text-xs text-[#D81B60] shrink-0 font-bold bg-[#FAF7F2] px-2 py-1 rounded-lg">
+                    Ver →
                   </span>
                 </button>
               );
