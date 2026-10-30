@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import type { Role } from "../types/auth";
+import { validatePasswordPolicy } from "../utils/security";
 
 interface AdminUsersModalProps {
   isOpen: boolean;
@@ -54,6 +55,12 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
     e.preventDefault();
     setFormError("");
 
+    const policy = validatePasswordPolicy(password);
+    if (!policy.isValid) {
+      setFormError(policy.message);
+      return;
+    }
+
     setLoadingAction(true);
     try {
       const res = await adminCreateUser({
@@ -81,10 +88,11 @@ export function AdminUsersModal({ isOpen, onClose, onNotify }: AdminUsersModalPr
   };
 
   const handleResetPasswordPrompt = async (userId: string, targetName: string) => {
-    const newPass = prompt(`Introduce la nueva contraseña para ${targetName} (mínimo 6 caracteres):`);
+    const newPass = prompt(`Introduce la nueva contraseña para ${targetName} (mínimo 8 caracteres, al menos 1 mayúscula y 1 signo):`);
     if (!newPass) return;
-    if (newPass.length < 6) {
-      alert("La contraseña debe tener al menos 6 caracteres.");
+    const policy = validatePasswordPolicy(newPass);
+    if (!policy.isValid) {
+      alert(policy.message);
       return;
     }
     const res = await adminResetPassword(userId, newPass);

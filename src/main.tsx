@@ -3,10 +3,17 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
 
-// BLINDAJE DE SEGURIDAD TOTAL: Destruir de inmediato cualquier residuo de localStorage
+// BLINDAJE DE SEGURIDAD ZERO-STORAGE: Destruir de inmediato cualquier residuo
 if (typeof window !== 'undefined') {
   try {
-    localStorage.clear();
+    if (window.localStorage) {
+      window.localStorage.clear();
+      window.localStorage.setItem = () => {};
+    }
+    if (window.sessionStorage) {
+      window.sessionStorage.clear();
+      window.sessionStorage.setItem = () => {};
+    }
   } catch (e) {
     console.warn("Storage wipe on init:", e);
   }

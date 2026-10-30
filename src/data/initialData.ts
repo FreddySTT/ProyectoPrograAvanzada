@@ -14,7 +14,7 @@ export const INITIAL_USERS: User[] = [
     username: "admin",
     name: "Freddy (Administrador)",
     email: "admin@riqsirutas.bo",
-    passwordHash: "d717ea898b6b7c268d852c9ee9c2020b3aa05cecf870b2ebe5772e96dd50de5f",
+    passwordHash: "2827a55f42fdcd5de8de4deb3da7906a406e429cb85105cd52f6860bad27f594", // Clave: Admin@2026!
     role: "admin",
     status: "active",
     avatar: "👑",
@@ -25,7 +25,7 @@ export const INITIAL_USERS: User[] = [
     username: "editor",
     name: "Laura Editora",
     email: "editor@riqsirutas.bo",
-    passwordHash: "734983cb87d3cfbbf709953e09c72bdb61ec2ac037ebce00e0265e7f67ac0878",
+    passwordHash: "b429d137899ebe29aab159e8aa0aba1b53008dab845d81c999769143d8962e0c", // Clave: Editor@2026!
     role: "editor",
     status: "active",
     avatar: "📝",
@@ -36,7 +36,7 @@ export const INITIAL_USERS: User[] = [
     username: "turista",
     name: "Carlos Viajero",
     email: "carlos@gmail.com",
-    passwordHash: "1b896094fbb2fb937097124cd51f574542be714047b1410b1fb3ba407e5de6d9",
+    passwordHash: "36705a0aa5318722394920d7137577bf4668e4f1ca738d6c91975af2b4b2f9b9", // Clave: Turista@2026!
     role: "normal",
     status: "active",
     avatar: "🎒",
@@ -47,7 +47,7 @@ export const INITIAL_USERS: User[] = [
     username: "camila",
     name: "Camila Lara",
     email: "camila@unifranz.edu.bo",
-    passwordHash: "9872a9c5a32c0b4e9b8d7fe6beb99ec3a9b80a028fd5b165f8ad4698eb4d72d7",
+    passwordHash: "04cf1b20074c4a79e9cd276473bfde24a12e1e172de889f5f84e95db4015e666", // Clave: Camila@2026!
     role: "normal",
     status: "active",
     avatar: "🌸",

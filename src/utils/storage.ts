@@ -2,16 +2,24 @@
  * ZeroStorage — Motor de Almacenamiento Cero-Disco (Pure In-Memory RAM)
  *
  * MÁXIMA SEGURIDAD:
- * 1. NADA se escribe en localStorage. El almacenamiento local queda 100% VACÍO.
+ * 1. NADA se escribe en localStorage ni sessionStorage.
  * 2. Cualquier intento de inspeccionar "DevTools -> LocalStorage" mostrará 0 elementos.
  * 3. Las credenciales, hashes de contraseñas y datos sensibles NUNCA tocan el disco del navegador.
  * 4. La persistencia real reside exclusivamente en la nube protegida de Supabase Cloud.
  */
 
-// Limpieza agresiva e inmediata al importar el módulo: destruir cualquier rastro anterior
+// Limpieza agresiva e inmediata al importar el módulo: destruir cualquier rastro existente
 if (typeof window !== "undefined") {
   try {
-    localStorage.clear();
+    if (window.localStorage) {
+      window.localStorage.clear();
+      // Neutralizar setItem para bloquear cualquier escritura
+      window.localStorage.setItem = () => {};
+    }
+    if (window.sessionStorage) {
+      window.sessionStorage.clear();
+      window.sessionStorage.setItem = () => {};
+    }
   } catch {}
 }
 
@@ -33,10 +41,10 @@ export function setStorageMode(_mode: StorageMode): void {
  */
 export async function secureSet(key: string, value: unknown): Promise<void> {
   memoryStore.set(key, value);
-  // Asegurar que nada se filtre a localStorage
   if (typeof window !== "undefined") {
     try {
-      localStorage.removeItem(key);
+      window.localStorage.removeItem(key);
+      window.sessionStorage.removeItem(key);
     } catch {}
   }
 }
@@ -52,24 +60,26 @@ export async function secureGet<T = unknown>(key: string): Promise<T | null> {
 }
 
 /**
- * Elimina de memoria RAM y limpia cualquier rastro en localStorage.
+ * Elimina de memoria RAM y asegura que localStorage quede vacío.
  */
 export async function secureRemove(key: string): Promise<void> {
   memoryStore.delete(key);
   if (typeof window !== "undefined") {
     try {
-      localStorage.removeItem(key);
+      window.localStorage.removeItem(key);
+      window.sessionStorage.removeItem(key);
     } catch {}
   }
 }
 
 /**
- * Purgado completo: vacía la RAM y destruye todo localStorage.
+ * Purgado completo: vacía la RAM y destruye todo localStorage y sessionStorage.
  */
 export function purgeAllLocalStorage(): void {
   if (typeof window !== "undefined") {
     try {
-      localStorage.clear();
+      window.localStorage.clear();
+      window.sessionStorage.clear();
     } catch {}
   }
 }

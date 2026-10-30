@@ -16,6 +16,7 @@ import {
   hashPassword,
   verifyPassword,
   verifyMasterAdminKey,
+  validatePasswordPolicy,
 } from "../utils/security";
 import {
   secureGet,
@@ -257,8 +258,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, message: "Todos los campos obligatorios deben completarse." };
     }
 
-    if (password.length < 6) {
-      return { success: false, message: "La contraseña debe tener al menos 6 caracteres." };
+    const policy = validatePasswordPolicy(password);
+    if (!policy.isValid) {
+      return { success: false, message: policy.message };
     }
 
     const usernameExists = users.some((u) => u.username.toLowerCase() === cleanUsername);
@@ -369,8 +371,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, message: "Todos los campos requeridos deben completarse." };
     }
 
-    if (password.length < 6) {
-      return { success: false, message: "La contraseña debe tener al menos 6 caracteres." };
+    const policy = validatePasswordPolicy(password);
+    if (!policy.isValid) {
+      return { success: false, message: policy.message };
     }
 
     if (users.some((u) => u.username.toLowerCase() === cleanUsername)) {
@@ -443,8 +446,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const adminResetPassword = async (userId: string, newPass: string) => {
-    if (newPass.length < 6) {
-      return { success: false, message: "La nueva clave debe tener al menos 6 caracteres." };
+    const policy = validatePasswordPolicy(newPass);
+    if (!policy.isValid) {
+      return { success: false, message: policy.message };
     }
 
     const newHash = await hashPassword(newPass);
@@ -471,8 +475,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, message: "Clave de Autorización Maestra incorrecta." };
     }
 
-    if (newPass.length < 6) {
-      return { success: false, message: "La nueva clave debe tener al menos 6 caracteres." };
+    const policy = validatePasswordPolicy(newPass);
+    if (!policy.isValid) {
+      return { success: false, message: policy.message };
     }
 
     const clean = usernameOrEmail.trim().toLowerCase();
