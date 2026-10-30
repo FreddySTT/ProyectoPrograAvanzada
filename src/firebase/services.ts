@@ -97,7 +97,30 @@ export function subscribeToSecurityLogs(
 export function getLocalPlaces(): PlaceItem[] {
   try {
     const raw = localStorage.getItem(PLACES_LOCAL_KEY);
-    return raw ? JSON.parse(raw) : INITIAL_PLACES;
+    if (!raw) return INITIAL_PLACES;
+    const stored: PlaceItem[] = JSON.parse(raw);
+    const storedMap = new Map(stored.map((p) => [p.id, p]));
+    let modified = false;
+    for (const initP of INITIAL_PLACES) {
+      if (!storedMap.has(initP.id)) {
+        stored.push(initP);
+        modified = true;
+      } else {
+        const cur = storedMap.get(initP.id)!;
+        if (initP.coordinates && (!cur.coordinates || cur.coordinates[0] !== initP.coordinates[0])) {
+          cur.coordinates = initP.coordinates;
+          modified = true;
+        }
+      }
+    }
+    if (modified) {
+      try {
+        localStorage.setItem(PLACES_LOCAL_KEY, JSON.stringify(stored));
+      } catch (e) {
+        console.warn("Could not persist merged places to localStorage", e);
+      }
+    }
+    return stored;
   } catch {
     return INITIAL_PLACES;
   }

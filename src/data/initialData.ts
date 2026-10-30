@@ -5,7 +5,9 @@ import foodImage from "../assets/gastronomia.jpg";
 import foodTraditionalImage from "../assets/comida-tradicional.jpg";
 import heritageImage from "../assets/patrimonio.jpg";
 import natureValleyImage from "../assets/naturaleza-valle.jpg";
+import natureGreenImage from "../assets/naturaleza-verde.jpg";
 import tunariImage from "../assets/tunari.jpg";
+import foodDishesImage from "../assets/comida-platos.jpg";
 import type { PlaceItem, User, Announcement } from "../types/auth";
 
 export const INITIAL_USERS: User[] = [
@@ -142,6 +144,71 @@ export const INITIAL_PLACES: PlaceItem[] = [
     visible: true,
     coordinates: [-66.1533, -17.4022],
   },
+  {
+    id: "place-9",
+    title: "Bosques y Senderos de Altura",
+    area: "Tiquipaya",
+    tag: "Naturaleza",
+    category: "naturaleza",
+    image: natureGreenImage,
+    rating: "4.8",
+    time: "3 h",
+    featured: true,
+    visible: true,
+    coordinates: [-66.2158, -17.3328],
+  },
+  {
+    id: "place-gastro-1",
+    title: "Casa de Campo",
+    area: "Av. Uyuni (Boulevar de la Recoleta)",
+    tag: "Gastronomía Valluna",
+    category: "gastronomia",
+    image: foodTraditionalImage,
+    rating: "4.9",
+    time: "1–2 h",
+    featured: true,
+    visible: true,
+    coordinates: [-66.1511, -17.3776],
+  },
+  {
+    id: "place-gastro-2",
+    title: "Punto de Encuentro (Central)",
+    area: "Calle Cobija 345 (Km 3 Av. Blanco Galindo)",
+    tag: "Pique Macho & Encuentro",
+    category: "gastronomia",
+    image: foodImage,
+    rating: "4.8",
+    time: "1–2 h",
+    featured: true,
+    visible: true,
+    coordinates: [-66.1825, -17.3917],
+  },
+  {
+    id: "place-gastro-3",
+    title: "La Chanchada",
+    area: "Av. Portales (Zona Norte)",
+    tag: "Chicharrón Cochabambino",
+    category: "gastronomia",
+    image: foodDishesImage,
+    rating: "5.0",
+    time: "2 h",
+    featured: true,
+    visible: true,
+    coordinates: [-66.1530, -17.3738],
+  },
+  {
+    id: "place-gastro-4",
+    title: "Casona del Molino",
+    area: "Calle Potosí esq. N° 1392 (al lado del Palacio Portales)",
+    tag: "Cocina Colonial & Tradición",
+    category: "gastronomia",
+    image: heritageImage,
+    rating: "4.9",
+    time: "2–3 h",
+    featured: true,
+    visible: true,
+    coordinates: [-66.1515, -17.3735],
+  },
 ];
 
 export const INITIAL_ANNOUNCEMENT: Announcement = {
@@ -158,6 +225,7 @@ export const AVAILABLE_PHOTO_PRESETS = [
   { name: "Cordillera del Tunari", url: tunariImage },
   { name: "Mercado La Cancha", url: foodImage },
   { name: "Valle de Tiquipaya", url: natureValleyImage },
+  { name: "Senderos de Altura (Tiquipaya)", url: natureGreenImage },
   { name: "Platos Típicos / Pique Macho", url: foodTraditionalImage },
   { name: "Danza y Tradición", url: cultureDanceImage },
   { name: "Ciclismo Valle Alto", url: adventureBikeImage },

@@ -7,8 +7,10 @@ import { AdminPlaceModal } from "./components/AdminPlaceModal";
 import { AdminUsersModal } from "./components/AdminUsersModal";
 import { AdminAnnouncementModal } from "./components/AdminAnnouncementModal";
 import { AdminPortalModal } from "./components/AdminPortalModal";
+import { MapView } from "./components/MapView";
 import { INITIAL_PLACES, INITIAL_ANNOUNCEMENT } from "./data/initialData";
 import {
+  getLocalPlaces,
   subscribeToPlaces,
   savePlace,
   deletePlace,
@@ -440,16 +442,11 @@ function MainApp() {
   const [notice, setNotice] = useState("");
   const [activeCategory, setActiveCategory] = useState<CategoryKey | null>(null);
   const [selectedFilter, setSelectedFilter] = useState("todos");
+  const [showMap, setShowMap] = useState(false);
 
-  // Dynamic Places State (Persisted in localStorage)
+  // Dynamic Places State (Persisted in localStorage & synced with initial data)
   const [places, setPlaces] = useState<PlaceItem[]>(() => {
-    try {
-      const stored = localStorage.getItem("riqsi_places_v1");
-      if (stored) return JSON.parse(stored);
-    } catch (e) {
-      console.error("Error loading places", e);
-    }
-    return INITIAL_PLACES;
+    return getLocalPlaces();
   });
 
   // Official Announcement Banner (Configured by admin, visible to all)
@@ -507,6 +504,8 @@ function MainApp() {
     const checkHash = () => {
       if (window.location.hash === "#portal-admin" || window.location.hash === "#admin") {
         setIsAdminPortalModalOpen(true);
+      } else if (window.location.hash === "#mapa" || window.location.hash === "#map") {
+        setShowMap(true);
       }
     };
     checkHash();
@@ -591,6 +590,19 @@ function MainApp() {
     return p.category === selectedFilter;
   });
 
+  if (showMap) {
+    return (
+      <MapView
+        places={places}
+        onBack={() => {
+          setShowMap(false);
+          window.location.hash = "";
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+      />
+    );
+  }
+
   if (activeCategory) {
     return (
       <CategoryPage
@@ -665,6 +677,13 @@ function MainApp() {
           <nav className="hidden items-center gap-8 font-subtitle text-sm font-bold text-[#37474F] md:flex">
             <a className="hover:text-[#D81B60] transition" href="#inicio">Inicio</a>
             <a className="hover:text-[#D81B60] transition" href="#explora">Explora</a>
+            <button
+              onClick={() => setShowMap(true)}
+              className="hover:text-[#D81B60] transition flex items-center gap-1.5 cursor-pointer font-subtitle text-sm font-bold text-[#37474F]"
+            >
+              <Icon name="map" size={17} />
+              <span>Mapa</span>
+            </button>
             <a className="hover:text-[#D81B60] transition" href="#destacados">Cultura</a>
             <a className="hover:text-[#D81B60] transition" href="#planifica">Turismo</a>
           </nav>
@@ -764,6 +783,16 @@ function MainApp() {
           <div className="mx-4 mb-4 rounded-2xl bg-white p-5 text-sm shadow-xl md:hidden border border-[#E2D9CC] space-y-3">
             <a className="block py-2 font-subtitle font-bold text-[#37474F]" href="#inicio" onClick={() => setMobileMenu(false)}>Inicio</a>
             <a className="block py-2 font-subtitle font-bold text-[#37474F]" href="#explora" onClick={() => setMobileMenu(false)}>Explora</a>
+            <button
+              className="flex items-center gap-2 w-full py-2 font-subtitle font-bold text-[#37474F] hover:text-[#D81B60] text-left cursor-pointer"
+              onClick={() => {
+                setShowMap(true);
+                setMobileMenu(false);
+              }}
+            >
+              <Icon name="map" size={18} />
+              <span>Mapa Interactivo</span>
+            </button>
             <a className="block py-2 font-subtitle font-bold text-[#37474F]" href="#destacados" onClick={() => setMobileMenu(false)}>Cultura</a>
             <a className="block py-2 font-subtitle font-bold text-[#37474F]" href="#planifica" onClick={() => setMobileMenu(false)}>Turismo</a>
             
@@ -867,6 +896,13 @@ function MainApp() {
                   className="inline-flex items-center gap-2 rounded-full border-2 border-white/60 bg-black/30 backdrop-blur px-6 py-3 font-subtitle text-sm font-bold text-white transition hover:bg-white hover:text-[#37474F]"
                 >
                   <Icon name="calendar" size={18} /> Planificar fechas
+                </button>
+
+                <button
+                  onClick={() => setShowMap(true)}
+                  className="inline-flex items-center gap-2 rounded-full border-2 border-white/60 bg-black/30 backdrop-blur px-6 py-3 font-subtitle text-sm font-bold text-white transition hover:bg-white hover:text-[#37474F] cursor-pointer"
+                >
+                  <Icon name="map" size={18} /> Ver Mapa
                 </button>
 
                 {/* Si no está logueado, botón de acceso rápido */}

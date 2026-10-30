@@ -77,6 +77,7 @@ export function AdminPlaceModal({
       time: time.trim() || "2 h",
       featured,
       visible: true,
+      coordinates: editingPlace?.coordinates,
     };
 
     onSave(savedItem);
