@@ -5,9 +5,6 @@ interface QuickCardData {
   title: string;
   badge: string;
   desc: string;
-  bg: string;
-  border: string;
-  hoverBg: string;
   icon: IconName;
   accent: string;
   catKey: "naturaleza" | "cultura" | "gastronomia" | "aventura";
@@ -20,54 +17,42 @@ interface QuickCategorySectionProps {
 const quickCards: QuickCardData[] = [
   {
     title: "Naturaleza",
-    badge: "Aire Puro",
-    desc: "Valles templados, lagunas y la imponente cordillera.",
-    bg: "bg-[#F0FDF4]",
-    border: "border-[#BBF7D0]",
-    hoverBg: "hover:bg-[#DCFCE7]",
+    badge: "Valles & Altura",
+    desc: "Lagunas andinas, aire puro y la imponente cordillera del Tunari.",
     icon: "mountain",
-    accent: "#16A34A",
+    accent: "#059669",
     catKey: "naturaleza",
   },
   {
     title: "Cultura",
-    badge: "Patrimonio",
-    desc: "Casonas, templos coloniales y el Cristo de la Concordia.",
-    bg: "bg-[#FFFBEB]",
-    border: "border-[#FDE68A]",
-    hoverBg: "hover:bg-[#FEF3C7]",
+    badge: "Patrimonio Vivo",
+    desc: "Casonas republicanas, templos coloniales y el Cristo de la Concordia.",
     icon: "compass",
-    accent: "#D97706",
+    accent: "#7C3AED",
     catKey: "cultura",
   },
   {
     title: "Gastronomía",
     badge: "Capital Culinaria",
-    desc: "Salteñas al paso, chicharrón y el inigualable silpancho.",
-    bg: "bg-[#FFF1F2]",
-    border: "border-[#FECDD3]",
-    hoverBg: "hover:bg-[#FFE4E6]",
+    desc: "Salteñas de media mañana, chicharrón de la llajta y silpancho tradicional.",
     icon: "utensils",
-    accent: "#E11D48",
+    accent: "#BE123C",
     catKey: "gastronomia",
   },
   {
     title: "Aventura",
-    badge: "Adrenalina",
-    desc: "Trekking en el Tunari, ciclismo de montaña y parapente.",
-    bg: "bg-[#ECFEFF]",
-    border: "border-[#A5F3FC]",
-    hoverBg: "hover:bg-[#CFFAFE]",
+    badge: "Rutas Activas",
+    desc: "Trekking de altura, parapente y circuitos ciclistas por el valle.",
     icon: "sparkle",
-    accent: "#0891B2",
+    accent: "#0284C7",
     catKey: "aventura",
   },
 ];
 
 export const QuickCategorySection: React.FC<QuickCategorySectionProps> = ({ onSelectCategory }) => {
   return (
-    <section id="explora" className="mx-auto max-w-[1240px] px-5 -mt-6 sm:-mt-10 relative z-20 lg:px-8">
-      <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+    <section id="explora" className="mx-auto max-w-[1240px] px-4 -mt-6 sm:-mt-8 relative z-20 lg:px-8">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {quickCards.map((card) => (
           <button
             key={card.title}
@@ -76,24 +61,31 @@ export const QuickCategorySection: React.FC<QuickCategorySectionProps> = ({ onSe
               onSelectCategory(card.catKey);
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
-            className={`${card.bg} ${card.hoverBg} ${card.border} group rounded-3xl border-2 p-5 sm:p-6 text-left shadow-lg hover:shadow-2xl transition hover:-translate-y-1.5 flex flex-col justify-between min-h-[160px]`}
+            className="group relative rounded-xl border border-slate-200/90 bg-white p-5 text-left shadow-xs hover:border-slate-300 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 flex flex-col justify-between min-h-[155px] cursor-pointer overflow-hidden"
           >
+            {/* Top accent hairline */}
+            <div
+              className="absolute top-0 left-0 right-0 h-1"
+              style={{ backgroundColor: card.accent }}
+            />
+
             <div className="flex items-center justify-between w-full">
               <span
-                className="grid h-12 w-12 place-items-center rounded-2xl bg-white shadow-md transition group-hover:scale-110"
+                className="grid h-10 w-10 place-items-center rounded-lg bg-slate-50 border border-slate-100 shadow-2xs transition group-hover:scale-105"
                 style={{ color: card.accent }}
               >
-                <Icon name={card.icon} size={24} />
+                <Icon name={card.icon} size={22} />
               </span>
-              <span className="font-subtitle text-[10px] font-extrabold uppercase tracking-wider text-[#6D4C41] bg-white/80 px-2 py-0.5 rounded-full shadow-2xs">
+              <span className="font-subtitle text-[10px] font-bold uppercase tracking-wider text-slate-600 bg-slate-100/90 px-2 py-0.5 rounded-md border border-slate-200/60">
                 {card.badge}
               </span>
             </div>
-            <div className="mt-4">
-              <h3 className="font-subtitle text-lg sm:text-xl font-extrabold text-[#37474F] group-hover:text-[#D81B60] transition">
+
+            <div className="mt-3">
+              <h3 className="font-subtitle text-base sm:text-lg font-bold text-slate-900 group-hover:text-rose-700 transition">
                 {card.title}
               </h3>
-              <p className="mt-1 text-xs text-[#6D4C41] leading-relaxed line-clamp-2">
+              <p className="mt-1 text-xs text-slate-500 leading-relaxed line-clamp-2">
                 {card.desc}
               </p>
             </div>
