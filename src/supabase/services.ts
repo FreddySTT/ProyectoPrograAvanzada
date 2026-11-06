@@ -68,6 +68,14 @@ export async function fetchPlaces(): Promise<PlaceItem[]> {
           createdAt: d.created_at || d.createdAt,
           updatedAt: d.updated_at || d.updatedAt,
           createdBy: d.created_by || d.createdBy,
+          precio: d.precio !== undefined ? Number(d.precio) : undefined,
+          precioUsd: (d.precio_usd ?? d.precioUsd) !== undefined ? Number(d.precio_usd ?? d.precioUsd) : undefined,
+          precioDetalle: d.precio_detalle || d.precioDetalle,
+          horarioVisita: d.horario_visita || d.horarioVisita,
+          descripcionItems: d.descripcion_items || d.descripcionItems,
+          consejo: d.consejo,
+          datoHistorico: d.dato_historico || d.datoHistorico,
+          badges: d.badges,
         }));
         await saveLocalPlaces(mapped);
         return mapped;
@@ -136,6 +144,14 @@ export async function savePlace(place: PlaceItem): Promise<boolean> {
         time: place.time,
         featured: place.featured ?? false,
         visible: place.visible ?? true,
+        precio: place.precio,
+        precio_usd: place.precioUsd,
+        precio_detalle: place.precioDetalle,
+        horario_visita: place.horarioVisita,
+        descripcion_items: place.descripcionItems,
+        consejo: place.consejo,
+        dato_historico: place.datoHistorico,
+        badges: place.badges,
         created_at: place.createdAt || new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

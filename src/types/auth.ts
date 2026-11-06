@@ -29,6 +29,23 @@ export interface PlaceItem {
   createdAt?: string;
   updatedAt?: string;
   createdBy?: string;
+  // ── Campos de detalle turístico ───────────────────────────────────────────
+  /** Precio en bolivianos (Tarifa por persona, e.g. 85) */
+  precio?: number;
+  /** Precio en USD (e.g. 12.20) */
+  precioUsd?: number;
+  /** Texto detallado de precios (e.g. "Teleférico: Bs. 10 · Entrada: Gratuita") */
+  precioDetalle?: string;
+  /** Horario de visita (e.g. "Martes a Domingo de 08:30 a 19:00") */
+  horarioVisita?: string;
+  /** Bullet points de qué ver/experimentar */
+  descripcionItems?: string[];
+  /** Consejo para viajeros (caja rosa) */
+  consejo?: string;
+  /** Dato histórico / curioso (caja azul) */
+  datoHistorico?: string;
+  /** Badges adicionales (e.g. ["IMPERDIBLE", "Destacado"]) */
+  badges?: string[];
 }
 
 export interface Announcement {

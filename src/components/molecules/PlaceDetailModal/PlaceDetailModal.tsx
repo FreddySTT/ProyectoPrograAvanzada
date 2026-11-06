@@ -141,6 +141,18 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
     curiousFact: "Este atractivo forma parte del circuito patrimonial y turístico del Bicentenario de Cochabamba.",
   };
 
+  const highlights = (place.descripcionItems && place.descripcionItems.length > 0)
+    ? place.descripcionItems
+    : guide.highlights;
+  const schedule = place.horarioVisita || guide.schedule;
+  const priceEstimate = place.precioDetalle || guide.priceEstimate;
+  const insiderTip = place.consejo || guide.insiderTip;
+  const curiousFact = place.datoHistorico || guide.curiousFact;
+  const displayPriceBob = place.precio !== undefined ? `Bs. ${place.precio}` : "Bs. 85";
+  const displayPriceUsd = place.precioUsd !== undefined 
+    ? `($${Number(place.precioUsd).toFixed(2)} USD)` 
+    : (place.precio !== undefined ? `($${(Number(place.precio) / 6.96).toFixed(2)} USD)` : "($12.20 USD)");
+
   return (
     <div
       role="dialog"
@@ -173,6 +185,11 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
                 ⭐ Destacado
               </span>
             )}
+            {place.badges && place.badges.map((b, idx) => (
+              <span key={idx} className="rounded-full bg-[#7C3AED] text-white px-3 py-1 text-xs font-subtitle font-black shadow-lg">
+                {b}
+              </span>
+            ))}
           </div>
 
           {/* Quick Zoom Lens Button (Muy Visible) */}
@@ -242,7 +259,7 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
               <span className="text-[#D81B60]">✦</span> ¿Qué ver y experimentar aquí?
             </h3>
             <ul className="space-y-2 text-xs sm:text-sm text-[#37474F]">
-              {guide.highlights.map((h, i) => (
+              {highlights.map((h, i) => (
                 <li key={i} className="flex items-start gap-2.5">
                   <span className="text-[#D81B60] font-black mt-0.5">✔</span>
                   <span className="leading-relaxed">{h}</span>
@@ -258,7 +275,7 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
                 <Icon name="calendar" size={14} /> Horarios de Visita
               </div>
               <p className="text-[#78350F] font-medium leading-relaxed">
-                {guide.schedule}
+                {schedule}
               </p>
             </div>
             <div className="rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] p-4">
@@ -266,7 +283,7 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
                 <Icon name="ticket" size={14} /> Precios / Ingreso
               </div>
               <p className="text-[#14532D] font-medium leading-relaxed">
-                {guide.priceEstimate}
+                {priceEstimate}
               </p>
             </div>
           </div>
@@ -278,7 +295,7 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
                 <span>💡</span> Consejo para Viajeros:
               </p>
               <p className="text-[#9F1239] leading-relaxed">
-                {guide.insiderTip}
+                {insiderTip}
               </p>
             </div>
 
@@ -287,7 +304,7 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
                 <span>📜</span> Dato Histórico / Curioso:
               </p>
               <p className="text-[#1E40AF] leading-relaxed">
-                {guide.curiousFact}
+                {curiousFact}
               </p>
             </div>
           </div>
@@ -298,8 +315,8 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
           <div>
             <span className="text-[11px] font-semibold text-[#6D4C41] block">Tarifa por persona</span>
             <div className="flex items-baseline gap-2">
-              <span className="font-display text-2xl font-black text-[#D81B60]">Bs. 85</span>
-              <span className="text-xs text-gray-500 font-medium">($12.20 USD)</span>
+              <span className="font-display text-2xl font-black text-[#D81B60]">{displayPriceBob}</span>
+              <span className="text-xs text-gray-500 font-medium">{displayPriceUsd}</span>
             </div>
           </div>
 

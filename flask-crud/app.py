@@ -173,6 +173,43 @@ class SupabaseBridge:
             print(f"[SupabaseBridge] Error creating place: {e}")
         return None
 
+    def update_place(self, place_id: str, data: dict):
+        if not self.is_configured:
+            return None
+        try:
+            # Eliminar id del body para el patch si está presente
+            payload = {k: v for k, v in data.items() if k != "id"}
+            payload["updated_at"] = datetime.utcnow().isoformat() + "Z"
+            resp = requests.patch(
+                f"{self.url}/rest/v1/places?id=eq.{place_id}",
+                headers=self._headers(),
+                json=payload,
+                timeout=6,
+            )
+            if resp.status_code in (200, 204):
+                try:
+                    res = resp.json()
+                    return res[0] if isinstance(res, list) and res else res
+                except Exception:
+                    return {"id": place_id, **data}
+        except Exception as e:
+            print(f"[SupabaseBridge] Error updating place: {e}")
+        return None
+
+    def delete_place(self, place_id: str):
+        if not self.is_configured:
+            return None
+        try:
+            resp = requests.delete(
+                f"{self.url}/rest/v1/places?id=eq.{place_id}",
+                headers=self._headers(),
+                timeout=6,
+            )
+            return resp.status_code in (200, 204)
+        except Exception as e:
+            print(f"[SupabaseBridge] Error deleting place: {e}")
+        return False
+
     def save_booking(self, booking_data: dict):
         if not self.is_configured:
             return None
@@ -354,14 +391,17 @@ def index():
             "supabase_bridge": "Integración Supabase Cloud PostgreSQL",
         },
         "endpoints": [
-            "GET  /health",
-            "GET  /api/users",
-            "POST /api/users",
-            "GET  /api/places",
-            "POST /api/places",
-            "GET  /api/routes/nodes",
-            "POST /api/routes/dijkstra",
-            "POST /api/payments/checkout",
+            "GET    /health",
+            "GET    /api/users",
+            "POST   /api/users",
+            "GET    /api/places",
+            "GET    /api/places/<id>",
+            "POST   /api/places",
+            "PUT    /api/places/<id>",
+            "DELETE /api/places/<id>",
+            "GET    /api/routes/nodes",
+            "POST   /api/routes/dijkstra",
+            "POST   /api/payments/checkout",
         ],
     })
 
@@ -452,27 +492,132 @@ def eliminar_usuario(user_id):
     return jsonify({"ok": True, "mensaje": f"Usuario '{eliminado.nombre}' eliminado"})
 
 
-# --- DESTINOS & SUPABASE PROXY ---
+# --- DESTINOS & SUPABASE PROXY (CRUD COMPLETO) ---
+# Memoria de fallback con datos enriquecidos para pruebas y resiliencia
+PLACES_FALLBACK = {
+    "place-1": {
+        "id": "place-1",
+        "title": "Cristo de la Concordia",
+        "area": "Cerro San Pedro",
+        "tag": "Imperdible",
+        "category": "cultura",
+        "image": "cochabamba-hero.jpg",
+        "rating": "4.8",
+        "time": "2-3 h",
+        "featured": True,
+        "visible": True,
+        "precio": 85,
+        "precio_usd": 12.20,
+        "precio_detalle": "Teleférico: Bs. 10 ida y vuelta · Entrada al Cristo: Gratuita (Bs. 2 para subir al mirador interno)",
+        "horario_visita": "Martes a Domingo de 08:30 a 19:00 (Teleférico operativo)",
+        "descripcion_items": [
+            "El Cristo más alto de América del Sur (34.20 m de escultura + 6.24 m de pedestal).",
+            "Teleférico panorámico desde el Parque de la Autonomía con vista al cerro San Pedro.",
+            "Mirador de 360° para contemplar toda la ciudad de Cochabamba, la laguna Alalay y la cordillera.",
+            "Escalera interna para subir hasta el pecho y los brazos de la estatua.",
+        ],
+        "consejo": "Sube cerca de las 17:30 para presenciar el atardecer sobre el valle y ver cómo se encienden las luces de la ciudad.",
+        "dato_historico": "Supera por centenas de centímetros al famoso Cristo Redentor de Río de Janeiro (30 m).",
+        "badges": ["IMPERDIBLE", "Destacado"],
+        "created_at": "2026-10-23T10:25:20.837126+00:00",
+        "updated_at": "2026-10-23T10:25:20.837126+00:00",
+    }
+}
+
+def normalizar_payload_lugar(data: dict) -> dict:
+    """Normaliza nombres de campos entre camelCase (frontend) y snake_case (DB / REST)."""
+    norm = dict(data)
+    if "precioUsd" in norm and "precio_usd" not in norm:
+        norm["precio_usd"] = norm.pop("precioUsd")
+    if "precioDetalle" in norm and "precio_detalle" not in norm:
+        norm["precio_detalle"] = norm.pop("precioDetalle")
+    if "horarioVisita" in norm and "horario_visita" not in norm:
+        norm["horario_visita"] = norm.pop("horarioVisita")
+    if "descripcionItems" in norm and "descripcion_items" not in norm:
+        norm["descripcion_items"] = norm.pop("descripcionItems")
+    if "datoHistorico" in norm and "dato_historico" not in norm:
+        norm["dato_historico"] = norm.pop("datoHistorico")
+    if "price" in norm and "precio" not in norm:
+        norm["precio"] = norm.pop("price")
+    return norm
+
 @app.route("/api/places", methods=["GET"])
 def obtener_destinos():
     lugares_supabase = supabase_bridge.fetch_places()
-    if lugares_supabase is not None:
+    if lugares_supabase is not None and len(lugares_supabase) > 0:
         return jsonify({"ok": True, "source": "supabase", "data": lugares_supabase})
 
     return jsonify({
         "ok": True,
-        "source": "backend-default",
-        "mensaje": "Consulta lista para Supabase o fallback local",
+        "source": "backend-memory",
+        "data": list(PLACES_FALLBACK.values()),
+        "mensaje": "Lugares cargados con todos los campos editables.",
     })
 
+@app.route("/api/places/<place_id>", methods=["GET"])
+def obtener_destino_por_id(place_id):
+    # Buscar en Supabase primero
+    lugares = supabase_bridge.fetch_places()
+    if lugares:
+        for p in lugares:
+            if str(p.get("id")) == str(place_id):
+                return jsonify({"ok": True, "source": "supabase", "data": p})
+
+    # Fallback local en memoria
+    if place_id in PLACES_FALLBACK:
+        return jsonify({"ok": True, "source": "backend-memory", "data": PLACES_FALLBACK[place_id]})
+
+    return jsonify({"ok": False, "error": f"Lugar '{place_id}' no encontrado"}), 404
 
 @app.route("/api/places", methods=["POST"])
 def crear_destino():
     data = request.get_json(silent=True) or {}
-    creado = supabase_bridge.create_place(data)
-    if creado:
-        return jsonify({"ok": True, "data": creado}), 201
-    return jsonify({"ok": True, "data": data, "nota": "Procesado en backend"}), 200
+    norm = normalizar_payload_lugar(data)
+    if "id" not in norm:
+        norm["id"] = f"place-{uuid.uuid4().hex[:6]}"
+    
+    # Intentar guardar en Supabase
+    creado = supabase_bridge.create_place(norm)
+    # Mantener siempre copia en memoria local
+    PLACES_FALLBACK[norm["id"]] = norm
+    
+    return jsonify({
+        "ok": True,
+        "mensaje": "Destino creado exitosamente",
+        "data": creado or norm
+    }), 201
+
+@app.route("/api/places/<place_id>", methods=["PUT", "PATCH"])
+def actualizar_destino(place_id):
+    """Permite al admin editar cualquier campo visible en pantalla desde Postman."""
+    data = request.get_json(silent=True) or {}
+    norm = normalizar_payload_lugar(data)
+
+    # Actualizar en memoria local
+    actual = PLACES_FALLBACK.get(place_id, {"id": place_id})
+    actual.update(norm)
+    actual["updated_at"] = datetime.utcnow().isoformat() + "Z"
+    PLACES_FALLBACK[place_id] = actual
+
+    # Replicar a Supabase si está disponible
+    resp_sb = supabase_bridge.update_place(place_id, norm)
+
+    return jsonify({
+        "ok": True,
+        "mensaje": f"Destino '{place_id}' actualizado con éxito",
+        "data": resp_sb or actual,
+        "campos_actualizados": list(norm.keys()),
+    }), 200
+
+@app.route("/api/places/<place_id>", methods=["DELETE"])
+def eliminar_destino(place_id):
+    eliminado_mem = PLACES_FALLBACK.pop(place_id, None)
+    sb_ok = supabase_bridge.delete_place(place_id)
+    return jsonify({
+        "ok": True,
+        "mensaje": f"Destino '{place_id}' eliminado",
+        "supabase_eliminado": sb_ok,
+    })
 
 
 # --- ALGORITMO DIJKSTRA ---
