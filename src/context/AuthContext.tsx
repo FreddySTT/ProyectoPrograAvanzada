@@ -2,6 +2,13 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import type { User, Role, SecurityLog } from "../types/auth";
 import { INITIAL_USERS } from "../data/initialData";
 import { isSupabaseConfigured } from "../supabase/config";
+import { BACKEND } from "../config/backend";
+import {
+  firebaseLogin,
+  firebaseRegister,
+  firebaseLogout,
+  onFirebaseAuthChange,
+} from "../firebase/services";
 import {
   fetchUsers,
   saveUserToDatabase,
@@ -68,8 +75,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [storageMode, setStorageModeState] = useState<StorageMode>(getStorageMode());
 
-  // Cargar sesión cifrada al montar
+  // ── Firebase Auth: escuchar cambios de sesión cuando el backend es Firebase ──
   useEffect(() => {
+    if (BACKEND !== "firebase") return;
+    const unsub = onFirebaseAuthChange((fbUser) => {
+      if (fbUser) {
+        // Adaptar FirebaseUser al tipo User del app
+        const adapted: User = {
+          id: fbUser.uid,
+          name: fbUser.displayName || fbUser.email?.split("@")[0] || "Usuario",
+          username: (fbUser.email?.split("@")[0] || fbUser.uid).toLowerCase(),
+          email: fbUser.email || "",
+          passwordHash: "",
+          role: "normal",
+          status: "active",
+          avatar: "🎒",
+          createdAt: new Date().toISOString().split("T")[0],
+          lastLogin: new Date().toISOString(),
+        };
+        setCurrentUser(adapted);
+      } else {
+        setCurrentUser(null);
+      }
+    });
+    return unsub;
+  }, []);
+
+  // Cargar sesión cifrada al montar (sólo en modo Supabase)
+  useEffect(() => {
+    if (BACKEND === "firebase") return; // Firebase gestiona su propia sesión
     secureGet<Omit<User, "passwordHash">>(SESSION_STORAGE_KEY).then((stored) => {
       if (stored) setCurrentUser(stored as User);
     });
@@ -136,6 +170,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (usernameOrEmail: string, password: string) => {
+    // ── Modo Firebase ─────────────────────────────────────────────────────────
+    if (BACKEND === "firebase") {
+      const result = await firebaseLogin(usernameOrEmail, password);
+      return { success: result.success, message: result.message };
+    }
+
+    // ── Modo Supabase / local (comportamiento original) ───────────────────────
     if (lockoutRemaining > 0) {
       return {
         success: false,
@@ -251,6 +292,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string;
     avatar?: string;
   }) => {
+    // ── Modo Firebase ─────────────────────────────────────────────────────────
+    if (BACKEND === "firebase") {
+      const result = await firebaseRegister(email, password, name);
+      return { success: result.success, message: result.message };
+    }
+
+    // ── Modo Supabase / local (comportamiento original) ───────────────────────
     const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
     const cleanEmail = email.trim().toLowerCase();
 
@@ -306,6 +354,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     const emailBefore = currentUser?.email || "anon";
+
+    // ── Modo Firebase: cerrar sesión en Firebase Auth ─────────────────────────
+    if (BACKEND === "firebase") {
+      await firebaseLogout();
+    }
+
     setCurrentUser(null);
     setPreviewAsNormal(false);
 
@@ -313,7 +367,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       event: "LOGOUT",
       userEmail: emailBefore,
       status: "OK",
-      details: "Cierre de sesión seguro finalizado",
+      details: `Cierre de sesión seguro finalizado (${BACKEND})`,
     });
   };
 

@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Cada usuario solo puede leer y escribir sus propios documentos de usuario
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Tareas / Notas personales
+    match /todos/{todoId} {
+      allow read, write: if request.auth != null && (resource == null || resource.data.uid == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+    }
+
+    // Destinos turísticos: lectura pública, modificación autenticada
+    match /places/{placeId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Anuncios y banners: lectura pública, modificación autenticada
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}

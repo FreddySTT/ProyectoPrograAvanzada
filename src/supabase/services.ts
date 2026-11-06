@@ -2,6 +2,16 @@ import { PlaceItem, Announcement, User, SecurityLog, Role } from "../types/auth"
 import { INITIAL_PLACES, INITIAL_USERS } from "../data/initialData";
 import { getSupabaseClient, isSupabaseConfigured } from "./config";
 import { secureGet, secureSet } from "../utils/storage";
+import { BACKEND } from "../config/backend";
+import {
+  firebaseGetPlaces,
+  firebaseSavePlace,
+  firebaseDeletePlace,
+  firebaseGetAnnouncement,
+  firebaseSaveAnnouncement,
+  firebaseSubscribeToPlaces,
+  firebaseSubscribeToAnnouncement,
+} from "../firebase/services";
 
 const LOCAL_PLACES_KEY = "riqsi_places_v2";
 const LOCAL_USERS_KEY = "riqsi_users_v2";
@@ -22,6 +32,14 @@ export const DEFAULT_ANNOUNCEMENT: Announcement = {
 // ==========================================
 
 export async function fetchPlaces(): Promise<PlaceItem[]> {
+  // ── Modo Firebase ───────────────────────────────────────────────────────────
+  if (BACKEND === "firebase") {
+    const fbPlaces = await firebaseGetPlaces();
+    if (fbPlaces && fbPlaces.length > 0) return fbPlaces as PlaceItem[];
+    return INITIAL_PLACES;
+  }
+
+  // ── Modo Supabase / local ───────────────────────────────────────────────────
   const supabase = getSupabaseClient();
 
   if (isSupabaseConfigured() && supabase) {
@@ -91,6 +109,12 @@ export async function saveLocalPlaces(places: PlaceItem[]): Promise<void> {
 }
 
 export async function savePlace(place: PlaceItem): Promise<boolean> {
+  // ── Modo Firebase ───────────────────────────────────────────────────────────
+  if (BACKEND === "firebase") {
+    return await firebaseSavePlace(place);
+  }
+
+  // ── Modo Supabase / local ───────────────────────────────────────────────────
   const local = await getLocalPlaces();
   const exists = local.some((p) => p.id === place.id);
   const updated = exists
@@ -125,6 +149,12 @@ export async function savePlace(place: PlaceItem): Promise<boolean> {
 }
 
 export async function deletePlace(id: string): Promise<boolean> {
+  // ── Modo Firebase ───────────────────────────────────────────────────────────
+  if (BACKEND === "firebase") {
+    return await firebaseDeletePlace(id);
+  }
+
+  // ── Modo Supabase / local ───────────────────────────────────────────────────
   const local = (await getLocalPlaces()).filter((p) => p.id !== id);
   await saveLocalPlaces(local);
 
@@ -145,6 +175,14 @@ export async function deletePlace(id: string): Promise<boolean> {
 // ==========================================
 
 export async function fetchAnnouncements(): Promise<Announcement> {
+  // ── Modo Firebase ───────────────────────────────────────────────────────────
+  if (BACKEND === "firebase") {
+    const fbAnn = await firebaseGetAnnouncement();
+    if (fbAnn) return fbAnn as Announcement;
+    return DEFAULT_ANNOUNCEMENT;
+  }
+
+  // ── Modo Supabase / local ───────────────────────────────────────────────────
   const supabase = getSupabaseClient();
 
   if (isSupabaseConfigured() && supabase) {
@@ -185,6 +223,12 @@ export async function saveLocalAnnouncement(ann: Announcement): Promise<void> {
 }
 
 export async function updateAnnouncements(ann: Announcement): Promise<boolean> {
+  // ── Modo Firebase ───────────────────────────────────────────────────────────
+  if (BACKEND === "firebase") {
+    return await firebaseSaveAnnouncement(ann);
+  }
+
+  // ── Modo Supabase / local ───────────────────────────────────────────────────
   await saveLocalAnnouncement(ann);
 
   const supabase = getSupabaseClient();
@@ -479,6 +523,14 @@ export const saveAnnouncement = updateAnnouncements;
  * Returns an unsubscribe function (clears interval or Supabase channel).
  */
 export function subscribeToPlaces(callback: (places: PlaceItem[]) => void): () => void {
+  // ── Modo Firebase ───────────────────────────────────────────────────────────
+  if (BACKEND === "firebase") {
+    fetchPlaces().then((p) => callback(p));
+    return firebaseSubscribeToPlaces((data) => {
+      if (data && data.length > 0) callback(data as PlaceItem[]);
+    });
+  }
+
   // Initial load
   fetchPlaces().then((places) => callback(places));
 
@@ -515,6 +567,14 @@ export function subscribeToPlaces(callback: (places: PlaceItem[]) => void): () =
  * Returns an unsubscribe function.
  */
 export function subscribeToAnnouncement(callback: (ann: Announcement) => void): () => void {
+  // ── Modo Firebase ───────────────────────────────────────────────────────────
+  if (BACKEND === "firebase") {
+    fetchAnnouncements().then((a) => callback(a));
+    return firebaseSubscribeToAnnouncement((data) => {
+      if (data) callback(data as Announcement);
+    });
+  }
+
   // Initial load
   fetchAnnouncements().then((ann) => callback(ann));
 
