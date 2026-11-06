@@ -173,25 +173,26 @@ function CategoryPage({
   }, [category]);
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#37474F]">
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md shadow-xs border-b border-[#E2D9CC]">
-        <div className="aguayo-strip h-1.5" />
-        <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between px-5 lg:px-8">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md shadow-xs border-b border-slate-200">
+        <div className="aguayo-strip h-1" />
+        <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between px-4 lg:px-8">
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center gap-2 text-sm font-subtitle font-bold text-[#37474F] hover:text-[#D81B60] transition"
+            className="flex items-center gap-2 text-sm font-subtitle font-bold text-slate-700 hover:text-rose-700 transition cursor-pointer"
           >
-            <span className="rotate-180 inline-block"><Icon name="arrow" size={18} /></span> Volver al inicio
+            <span className="rotate-180 inline-block"><Icon name="arrow" size={16} /></span>
+            <span>Volver al inicio</span>
           </button>
-          <div className="flex items-center gap-2.5">
-            <AndeanDiamond size={20} />
-            <span className="font-subtitle text-lg font-bold text-[#37474F] tracking-tight">Cochabamba</span>
+          <div className="flex items-center gap-2">
+            <AndeanDiamond size={18} />
+            <span className="font-subtitle text-base font-extrabold text-slate-900 tracking-tight">Cochabamba</span>
           </div>
-          <button className="relative rounded-full p-2.5 hover:bg-[#FAF7F2] transition text-[#37474F]" aria-label="Favoritos">
-            <Icon name="heart" size={21} filled={favorites.length > 0} />
+          <button className="relative rounded-lg p-2 hover:bg-slate-100 transition text-slate-700 cursor-pointer" aria-label="Favoritos">
+            <Icon name="heart" size={20} filled={favorites.length > 0} />
             {favorites.length > 0 && (
-              <span className="absolute right-0 top-0 grid h-4 w-4 place-items-center rounded-full bg-[#D81B60] text-[9px] font-bold text-white">
+              <span className="absolute right-0 top-0 grid h-4 w-4 place-items-center rounded-md bg-rose-700 text-[9px] font-bold text-white">
                 {favorites.length}
               </span>
             )}
@@ -201,7 +202,7 @@ function CategoryPage({
 
       <main>
         {/* Hero Banner */}
-        <section className="relative min-h-[460px] overflow-hidden text-white bg-[#1E293B]">
+        <section className="relative min-h-[440px] overflow-hidden text-white bg-slate-950">
           <img
             src={data.hero}
             alt={data.title}
@@ -214,18 +215,18 @@ function CategoryPage({
               <img src={saltenaImage} alt="Tigrillo disfrutando Salteña Boliviana" className="h-full w-full object-cover object-right md:object-center" />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#1E293B]/95 via-[#1E293B]/70 to-transparent" />
-          <div className="relative mx-auto flex min-h-[460px] max-w-[1240px] items-center px-5 py-16 lg:px-8">
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/70 to-transparent" />
+          <div className="relative mx-auto flex min-h-[440px] max-w-[1240px] items-center px-4 py-14 lg:px-8">
             <div className="max-w-[660px]">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/25 px-3.5 py-1 backdrop-blur-md">
-                <AndeanDiamond size={15} />
-                <p className="font-subtitle text-xs font-bold uppercase tracking-[.18em] text-[#F4C430]">{data.eyebrow}</p>
+              <div className="mb-3.5 inline-flex items-center gap-2 rounded-md border border-white/20 bg-black/30 px-3 py-1 backdrop-blur-md">
+                <AndeanDiamond size={14} />
+                <p className="font-subtitle text-xs font-bold uppercase tracking-widest text-amber-300">{data.eyebrow}</p>
               </div>
               <h1 className="font-display text-4xl sm:text-6xl font-bold tracking-tight leading-tight">{data.title}</h1>
-              <p className="mt-4 max-w-xl text-base sm:text-lg leading-relaxed text-white/90">{data.intro}</p>
-              <div className="mt-6 flex flex-wrap gap-2.5">
+              <p className="mt-3.5 max-w-xl text-sm sm:text-base leading-relaxed text-slate-200">{data.intro}</p>
+              <div className="mt-5 flex flex-wrap gap-2">
                 {data.stats.map((stat) => (
-                  <span key={stat} className="rounded-full border border-white/30 bg-white/15 px-4 py-1.5 text-xs font-subtitle font-semibold backdrop-blur-md">
+                  <span key={stat} className="rounded-md border border-white/20 bg-white/10 px-3 py-1 text-xs font-subtitle font-semibold backdrop-blur-md">
                     {stat}
                   </span>
                 ))}
@@ -233,33 +234,33 @@ function CategoryPage({
             </div>
           </div>
           {category === "gastronomia" && (
-            <div className="absolute bottom-5 right-6 z-20 hidden sm:flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3.5 py-1.5 backdrop-blur-md">
-              <span className={`h-2.5 w-2.5 rounded-full transition-all ${!showAlternateHero ? "bg-[#F4C430] scale-125" : "bg-white/40"}`} />
-              <span className={`h-2.5 w-2.5 rounded-full transition-all ${showAlternateHero ? "bg-[#F4C430] scale-125" : "bg-white/40"}`} />
+            <div className="absolute bottom-4 right-6 z-20 hidden sm:flex items-center gap-2 rounded-md border border-white/20 bg-black/40 px-3 py-1.5 backdrop-blur-md">
+              <span className={`h-2 w-2 rounded-full transition-all ${!showAlternateHero ? "bg-amber-400 scale-125" : "bg-white/40"}`} />
+              <span className={`h-2 w-2 rounded-full transition-all ${showAlternateHero ? "bg-amber-400 scale-125" : "bg-white/40"}`} />
               <span className="font-subtitle text-xs font-bold text-white/90">
-                {showAlternateHero ? "🐾 Tigrillo con Salteña Boliviana" : "Sabores de la Llajta (cambia en 3s...)"}
+                {showAlternateHero ? "🐾 Tigrillo con Salteña Boliviana" : "Sabores de la Llajta"}
               </span>
             </div>
           )}
         </section>
 
         {/* Experience Cards with ZoomImage & Guide Popup */}
-        <section className="mx-auto max-w-[1240px] px-5 py-16 lg:px-8">
-          <div className="mb-9 flex flex-col justify-between gap-5 md:flex-row md:items-end">
+        <section className="mx-auto max-w-[1240px] px-4 py-14 lg:px-8">
+          <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
             <div>
               <p className="eyebrow">—— SELECCIÓN LOCAL</p>
               <h2 className="section-title">Experiencias imperdibles</h2>
-              <p className="text-xs text-[#6D4C41] mt-1 font-medium">
+              <p className="text-xs text-slate-500 mt-1 font-medium">
                 Pasa el cursor sobre cualquier imagen para hacer <strong>zoom dinámico</strong> o haz clic para ver en pantalla completa.
               </p>
             </div>
-            <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
+            <div className="flex max-w-full gap-1.5 overflow-x-auto pb-1">
               {data.filters.map((filter, index) => (
                 <button
                   key={filter}
                   type="button"
-                  className="rounded-full border border-[#E2D9CC] px-4 py-1.5 font-subtitle text-xs font-bold transition shadow-xs"
-                  style={index === 0 ? { backgroundColor: data.accent, borderColor: data.accent, color: "white" } : { backgroundColor: "white", color: "#6D4C41" }}
+                  className="rounded-lg border px-3.5 py-1.5 font-subtitle text-xs font-bold transition shadow-2xs cursor-pointer"
+                  style={index === 0 ? { backgroundColor: "#0F172A", borderColor: "#0F172A", color: "white" } : { backgroundColor: "white", borderColor: "#E2E8F0", color: "#334155" }}
                 >
                   {filter}
                 </button>
@@ -267,13 +268,12 @@ function CategoryPage({
             </div>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {data.highlights.map((item, index) => {
               const favorite = favorites.includes(item.title);
               return (
-                <article key={item.title} className="group overflow-hidden rounded-[24px] bg-white border border-[#E2D9CC] shadow-md hover:shadow-xl transition flex flex-col justify-between">
-                  <div className="relative h-60 overflow-hidden">
-                    {/* ZoomImage with Cursor Magnifier */}
+                <article key={item.title} className="group overflow-hidden rounded-xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
+                  <div className="relative h-56 overflow-hidden bg-slate-100">
                     <ZoomImage
                       src={item.image}
                       alt={item.title}
@@ -301,58 +301,58 @@ function CategoryPage({
                           category,
                         })
                       }
-                      className="absolute left-3.5 bottom-3.5 z-20 flex items-center gap-1.5 rounded-full bg-[#1E293B]/85 hover:bg-[#D81B60] text-white px-3 py-1 text-[11px] font-subtitle font-black backdrop-blur-md shadow-lg border border-white/30 transition hover:scale-105"
+                      className="absolute left-3 bottom-3 z-20 flex items-center gap-1.5 rounded-md bg-slate-900/85 hover:bg-rose-700 text-white px-2.5 py-1 text-[11px] font-subtitle font-bold backdrop-blur-md shadow-sm border border-white/20 transition cursor-pointer"
                       title="Ver foto en alta resolución con lupa de zoom"
                     >
                       <span>🔍</span>
-                      <span>Zoom Lupa</span>
+                      <span>Zoom</span>
                     </button>
 
-                    <span className="absolute left-4 top-4 rounded-full px-3 py-1 font-subtitle text-[10px] font-extrabold uppercase tracking-wider text-white shadow-md pointer-events-none" style={{ backgroundColor: data.accent }}>
+                    <span className="absolute left-3 top-3 rounded-md px-2.5 py-0.5 font-subtitle text-[10px] font-extrabold uppercase tracking-wider text-white shadow-sm pointer-events-none" style={{ backgroundColor: data.accent }}>
                       {item.label}
                     </span>
 
                     <button
                       type="button"
                       onClick={() => toggleFavorite(item.title)}
-                      className={`absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full transition shadow-md z-10 ${favorite ? "bg-[#D81B60] text-white" : "bg-white/90 text-[#37474F] hover:bg-white"}`}
+                      className={`absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg transition shadow-sm z-10 cursor-pointer border ${favorite ? "bg-rose-700 text-white border-rose-700" : "bg-white/95 text-slate-700 hover:bg-white border-white/60"}`}
                       aria-label={`Guardar ${item.title}`}
                     >
-                      <Icon name="heart" size={18} filled={favorite} />
+                      <Icon name="heart" size={16} filled={favorite} />
                     </button>
 
-                    <span className="absolute bottom-1 left-3 font-display text-[64px] leading-none font-bold text-white/30 select-none pointer-events-none">
+                    <span className="absolute bottom-1 left-3 font-display text-[52px] leading-none font-bold text-white/20 select-none pointer-events-none">
                       0{index + 1}
                     </span>
                   </div>
 
-                  <div className="p-6 flex-1 flex flex-col justify-between">
+                  <div className="p-4 flex-1 flex flex-col justify-between">
                     <div>
-                      <div className="mb-2 flex items-center gap-2 text-xs font-medium text-[#6D4C41]">
-                        <Icon name="pin" size={14} /> {item.place}
+                      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                        <Icon name="pin" size={13} /> {item.place}
                       </div>
                       <h3
                         onClick={() => onOpenDetail(item.title)}
-                        className="font-subtitle text-xl font-bold text-[#37474F] hover:text-[#D81B60] transition cursor-pointer"
-                        title="Ver qué ver y hacer en este lugar"
+                        className="font-subtitle text-lg font-bold text-slate-900 hover:text-rose-700 transition cursor-pointer leading-snug"
+                        title="Ver detalles"
                       >
                         {item.title}
                       </h3>
                     </div>
 
-                    <div className="mt-5 flex items-center justify-between border-t border-[#E8E3D8] pt-4 text-xs">
+                    <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
                       <button
                         type="button"
                         onClick={() => onOpenDetail(item.title)}
-                        className="font-subtitle font-bold text-[#D81B60] hover:underline flex items-center gap-1"
+                        className="font-subtitle font-bold text-rose-700 hover:underline flex items-center gap-0.5 cursor-pointer text-xs"
                       >
-                        <span>Ver qué ver aquí</span>
+                        <span>Detalles</span>
                         <span>→</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => onBookExperience(item.title)}
-                        className="rounded-xl bg-[#D81B60] text-white px-3.5 py-1.5 font-subtitle font-bold hover:bg-[#b0144c] transition shadow-xs"
+                        className="rounded-lg bg-slate-900 text-white px-3 py-1.5 font-subtitle font-bold hover:bg-slate-800 transition shadow-2xs cursor-pointer text-xs"
                       >
                         Reservar
                       </button>
@@ -365,13 +365,13 @@ function CategoryPage({
         </section>
       </main>
 
-      <footer className="bg-[#1E293B] text-white/75">
-        <div className="aguayo-strip h-1.5" />
-        <div className="mx-auto flex max-w-[1240px] items-center justify-between px-5 py-7 text-xs">
+      <footer className="bg-slate-950 text-slate-400">
+        <div className="aguayo-strip h-1" />
+        <div className="mx-auto flex max-w-[1240px] items-center justify-between px-4 py-6 text-xs">
           <div className="flex items-center gap-2">
-            <AndeanDiamond size={16} />
+            <AndeanDiamond size={15} />
             <span className="font-subtitle font-bold text-white">Cochabamba</span>
-            <span className="text-white/60">· Riqsi Rutas</span>
+            <span className="text-slate-500">· Riqsi Rutas</span>
           </div>
           <span className="font-script text-2xl text-[#F4C430]">"Cochabamba, siempre una buena idea"</span>
         </div>
@@ -428,6 +428,7 @@ function MainApp() {
 
   // Map View State (Geolocalización & Rutas en vivo)
   const [showMap, setShowMap] = useState(false);
+  const [mapInitialPlace, setMapInitialPlace] = useState<PlaceItem | null>(null);
 
   // Load persisted data
   useEffect(() => {
@@ -635,8 +636,10 @@ function MainApp() {
     return (
       <MapView
         places={places}
+        initialPlace={mapInitialPlace}
         onBack={() => {
           setShowMap(false);
+          setMapInitialPlace(null);
           window.location.hash = "";
           window.scrollTo({ top: 0, behavior: "smooth" });
         }}
@@ -667,7 +670,7 @@ function MainApp() {
 
   // ─── Main Page ────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#37474F] font-sans selection:bg-[#D81B60] selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-rose-700 selection:text-white">
       {/* Navbar (includes announcement banner + sticky header) */}
       <Navbar
         currentUser={currentUser}
@@ -688,7 +691,7 @@ function MainApp() {
         onOpenFlaskDemo={() => { setShowFlaskDemo(true); window.scrollTo({ top: 0 }); }}
         onOpenEditAnnouncement={() => setIsAdminAnnouncementModalOpen(true)}
         onOpenPayReservation={() => openPaymentModal()}
-        onOpenMap={() => setShowMap(true)}
+        onOpenMap={() => { setMapInitialPlace(null); setShowMap(true); }}
       />
 
       <main>
@@ -705,7 +708,7 @@ function MainApp() {
           onTravelersChange={setTravelers}
           currentUser={currentUser}
           onOpenAuthModal={(tab) => { setAuthModalTab(tab); setIsAuthModalOpen(true); }}
-          onOpenMap={() => setShowMap(true)}
+          onOpenMap={() => { setMapInitialPlace(null); setShowMap(true); }}
         />
 
         {/* Quick Category Cards */}
@@ -730,21 +733,26 @@ function MainApp() {
           onToggleFeatured={handleToggleFeatured}
           onEditPlace={openEditPlaceModal}
           onDeletePlace={handleDeletePlace}
+          onOpenMap={(place) => {
+            setMapInitialPlace(place);
+            setShowMap(true);
+            window.location.hash = "#mapa";
+          }}
         />
 
         {/* Cultural Quote Card */}
-        <section className="mx-auto max-w-[1240px] px-5 pb-16 lg:px-8">
-          <div className="rounded-[32px] bg-gradient-to-r from-[#FFF8EE] via-[#FFF1F2] to-[#F0FDF4] p-8 sm:p-14 text-center border border-[#FDE68A] shadow-md relative overflow-hidden">
-            <div className="flex justify-center text-[#6D4C41] mb-2">
-              <Icon name="mountain" size={38} className="text-[#37474F]" />
+        <section className="mx-auto max-w-[1240px] px-4 pb-14 lg:px-8">
+          <div className="rounded-xl bg-white p-8 sm:p-12 text-center border border-slate-200/90 shadow-xs relative overflow-hidden">
+            <div className="flex justify-center text-slate-400 mb-2">
+              <Icon name="mountain" size={32} className="text-slate-700" />
             </div>
-            <p className="font-script text-3xl sm:text-5xl lg:text-6xl text-[#37474F] font-normal leading-tight my-4">
+            <p className="font-script text-3xl sm:text-5xl lg:text-6xl text-slate-900 font-normal leading-tight my-3">
               "Cochabamba, siempre una buena idea"
             </p>
             <div className="flex justify-center items-center gap-2 mt-4">
-              <span className="h-px w-12 bg-[#D81B60]/30" />
-              <AndeanDiamond size={22} />
-              <span className="h-px w-12 bg-[#F7931E]/30" />
+              <span className="h-px w-12 bg-slate-200" />
+              <AndeanDiamond size={18} />
+              <span className="h-px w-12 bg-slate-200" />
             </div>
           </div>
         </section>
@@ -756,22 +764,22 @@ function MainApp() {
         />
 
         {/* Purpose Banner */}
-        <section className="pattern-band bg-[#D81B60] text-white">
-          <div className="aguayo-strip h-2.5" />
-          <div className="mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-6 px-5 py-12 sm:flex-row sm:items-center lg:px-8">
+        <section className="bg-slate-900 text-white">
+          <div className="aguayo-strip h-1" />
+          <div className="mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-6 px-4 py-10 sm:flex-row sm:items-center lg:px-8">
             <div>
               <div className="flex items-center gap-2">
-                <p className="font-subtitle text-xs font-bold uppercase tracking-[.25em] text-[#F4C430]">Viaja con propósito</p>
-                <span className="font-script text-3xl text-white">¡Bienvenidos!</span>
+                <p className="font-subtitle text-xs font-bold uppercase tracking-widest text-amber-300">Viaja con propósito</p>
+                <span className="font-script text-2xl text-white">¡Bienvenidos!</span>
               </div>
-              <h2 className="font-display mt-2 text-3xl sm:text-4xl font-bold">
+              <h2 className="font-display mt-1 text-2xl sm:text-3xl font-bold">
                 Descubre más. Apoya a los productores y artesanos locales.
               </h2>
             </div>
             <button
               type="button"
               onClick={() => notify("¡Gracias por apoyar el turismo comunitario en Cochabamba!")}
-              className="shrink-0 rounded-full bg-white px-7 py-3.5 font-subtitle text-sm font-bold text-[#D81B60] shadow-xl transition hover:bg-[#FAF7F2] hover:scale-105"
+              className="shrink-0 rounded-lg bg-white px-6 py-3 font-subtitle text-xs sm:text-sm font-bold text-slate-900 shadow-sm transition hover:bg-slate-100 cursor-pointer"
             >
               Conoce nuestra comunidad →
             </button>

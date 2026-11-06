@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export interface DateRange {
   startDate: Date | null;
@@ -175,18 +175,18 @@ export function CalendarPicker({ isOpen, value, onChange, onClose }: CalendarPic
         role="dialog"
         aria-modal="true"
         aria-label="Selector de fechas de viaje"
-        className="relative w-full max-w-[420px] rounded-3xl bg-white p-6 shadow-[0_25px_80px_rgba(0,0,0,0.45)] border-2 border-[#D81B60]/30 animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-[420px] rounded-xl bg-white p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200"
       >
         {/* Aguayo decorative top line */}
-        <div className="aguayo-strip -mx-6 -mt-6 mb-5 h-2.5 rounded-t-3xl" />
+        <div className="aguayo-strip -mx-6 -mt-6 mb-4 h-1 rounded-t-xl" />
 
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <span className="font-subtitle text-xs font-bold uppercase tracking-wider text-[#F7931E]">
+            <span className="font-subtitle text-xs font-bold uppercase tracking-wider text-rose-700">
               Planifica tu estadía
             </span>
-            <h3 className="font-subtitle text-lg font-bold text-[#37474F]">
+            <h3 className="font-subtitle text-base font-bold text-slate-900">
               ¿Cuándo quieres viajar?
             </h3>
           </div>
@@ -194,32 +194,32 @@ export function CalendarPicker({ isOpen, value, onChange, onClose }: CalendarPic
             type="button"
             onClick={onClose}
             aria-label="Cerrar calendario"
-            className="grid h-8 w-8 place-items-center rounded-full bg-[#FAF7F2] text-[#37474F] hover:bg-[#F5E6D3] hover:text-[#D81B60] transition font-bold"
+            className="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition font-bold cursor-pointer"
           >
             ✕
           </button>
         </div>
 
         {/* Preset quick buttons */}
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-4 flex flex-wrap gap-1.5">
           <button
             type="button"
             onClick={() => applyPreset("weekend")}
-            className="rounded-full border border-[#E2D9CC] bg-[#FEF4E8] px-3.5 py-1.5 text-xs font-bold text-[#F7931E] hover:border-[#F7931E] hover:bg-[#F7931E] hover:text-white transition shadow-sm"
+            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-900 hover:bg-slate-900 hover:text-white transition shadow-2xs cursor-pointer"
           >
             Fin de semana
           </button>
           <button
             type="button"
             onClick={() => applyPreset("nextWeek")}
-            className="rounded-full border border-[#E2D9CC] bg-[#EBF6EE] px-3.5 py-1.5 text-xs font-bold text-[#4CAF50] hover:border-[#4CAF50] hover:bg-[#4CAF50] hover:text-white transition shadow-sm"
+            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-900 hover:bg-slate-900 hover:text-white transition shadow-2xs cursor-pointer"
           >
             Próxima semana
           </button>
           <button
             type="button"
             onClick={() => applyPreset("week")}
-            className="rounded-full border border-[#E2D9CC] bg-[#F7EBF9] px-3.5 py-1.5 text-xs font-bold text-[#7B1FA2] hover:border-[#7B1FA2] hover:bg-[#7B1FA2] hover:text-white transition shadow-sm"
+            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-900 hover:bg-slate-900 hover:text-white transition shadow-2xs cursor-pointer"
           >
             7 días completos
           </button>
@@ -275,21 +275,21 @@ export function CalendarPicker({ isOpen, value, onChange, onClose }: CalendarPic
             const inRange = isInRange(day);
 
             let cellClass = "relative h-9 w-full flex items-center justify-center text-xs sm:text-sm ";
-            let btnClass = "h-8.5 w-8.5 rounded-full flex items-center justify-center font-bold transition ";
+            let btnClass = "h-8 w-8 rounded-md flex items-center justify-center font-bold transition cursor-pointer ";
 
             if (isStart && isEnd) {
-              btnClass += "bg-[#D81B60] text-white shadow-lg shadow-[#D81B60]/40 scale-105";
+              btnClass += "bg-rose-700 text-white shadow-xs scale-105";
             } else if (isStart) {
-              cellClass += "bg-gradient-to-r from-transparent to-[#FCE4EC] rounded-l-full ";
-              btnClass += "bg-[#D81B60] text-white shadow-lg shadow-[#D81B60]/40 scale-105";
+              cellClass += "bg-gradient-to-r from-transparent to-rose-100 rounded-l-md ";
+              btnClass += "bg-rose-700 text-white shadow-xs scale-105";
             } else if (isEnd) {
-              cellClass += "bg-gradient-to-l from-transparent to-[#FCE4EC] rounded-r-full ";
-              btnClass += "bg-[#D81B60] text-white shadow-lg shadow-[#D81B60]/40 scale-105";
+              cellClass += "bg-gradient-to-l from-transparent to-rose-100 rounded-r-md ";
+              btnClass += "bg-rose-700 text-white shadow-xs scale-105";
             } else if (inRange) {
-              cellClass += "bg-[#FCE4EC] ";
-              btnClass += "text-[#D81B60] hover:bg-[#F8BBD0]";
+              cellClass += "bg-rose-50 ";
+              btnClass += "text-rose-800 hover:bg-rose-100";
             } else {
-              btnClass += "text-[#37474F] hover:bg-[#F5E6D3]";
+              btnClass += "text-slate-700 hover:bg-slate-100";
             }
 
             return (
@@ -307,31 +307,31 @@ export function CalendarPicker({ isOpen, value, onChange, onClose }: CalendarPic
         </div>
 
         {/* Range Status Info */}
-        <div className="mt-5 flex items-center justify-between border-t border-[#E2D9CC] pt-4 text-xs">
+        <div className="mt-5 flex items-center justify-between border-t border-slate-200 pt-4 text-xs">
           <div>
             {tempStart && tempEnd ? (
-              <div className="font-semibold text-[#37474F]">
+              <div className="font-semibold text-slate-800">
                 <div>{formatShort(tempStart)} — {formatShort(tempEnd)}</div>
-                <div className="text-[#D81B60] font-bold">{calculateNights()} noches de viaje</div>
+                <div className="text-rose-700 font-bold">{calculateNights()} noches de viaje</div>
               </div>
             ) : tempStart ? (
-              <span className="text-[#6D4C41] font-medium">Selecciona la fecha de regreso</span>
+              <span className="text-slate-500 font-medium">Selecciona la fecha de regreso</span>
             ) : (
-              <span className="text-[#6D4C41] font-medium">Elige las fechas deseadas</span>
+              <span className="text-slate-500 font-medium">Elige las fechas deseadas</span>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={clearSelection}
-              className="text-xs font-bold text-[#6D4C41] hover:text-[#D81B60] transition"
+              className="text-xs font-bold text-slate-500 hover:text-rose-700 transition cursor-pointer"
             >
               Limpiar
             </button>
             <button
               type="button"
               onClick={applySelection}
-              className="rounded-full bg-[#F7931E] px-5 py-2 text-xs font-bold text-white shadow-md shadow-[#F7931E]/30 hover:bg-[#D81B60] hover:shadow-[#D81B60]/30 transition"
+              className="rounded-lg bg-slate-900 hover:bg-slate-800 px-4 py-2 text-xs font-bold text-white shadow-xs transition cursor-pointer"
             >
               Aplicar fechas →
             </button>
