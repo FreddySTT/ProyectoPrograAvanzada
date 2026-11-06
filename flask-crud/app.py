@@ -30,7 +30,7 @@ except ImportError:
 # ==============================================================================
 SUPABASE_URL = os.environ.get("SUPABASE_URL", os.environ.get("VITE_SUPABASE_URL", "")).rstrip("/")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", os.environ.get("VITE_SUPABASE_ANON_KEY", ""))
-PORT = int(os.environ.get("PORT", 5000))
+PORT = int(os.environ.get("PORT", 5551))
 
 
 # ==============================================================================

@@ -42,6 +42,8 @@ const INITIAL_FALLBACK_USERS: Usuario[] = [
 // Lista de URLs candidatas donde Flask puede estar respondiendo
 const CANDIDATE_APIS = [
   import.meta.env.VITE_FLASK_API_URL,
+  "http://localhost:5551/api",
+  "http://127.0.0.1:5551/api",
   "/api",
   "http://localhost:5000/api",
   "http://localhost:5050/api",

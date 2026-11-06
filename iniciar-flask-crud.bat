@@ -1,9 +1,9 @@
-﻿@echo off
-title Flask CRUD API - Usuarios en Memoria
+@echo off
+title Flask CRUD API - Riqsi Rutas (Puerto 5551)
 color 0A
 echo ================================================
-echo   Flask CRUD API - Usuarios en Memoria
-echo   http://localhost:5000
+echo   Flask CRUD API - Riqsi Rutas & Supabase
+echo   http://localhost:5551
 echo ================================================
 echo.
 
@@ -17,16 +17,17 @@ if errorlevel 1 (
 
 :: Ir a la carpeta flask-crud
 cd /d "%~dp0flask-crud"
+set PORT=5551
 
 :: Instalar dependencias si no existen
-pip show flask >nul 2>&1
+python -m pip show flask >nul 2>&1
 if errorlevel 1 (
     echo Instalando dependencias...
-    pip install -r requirements.txt
+    python -m pip install -r requirements.txt
     echo.
 )
 
-echo Iniciando servidor Flask...
+echo Iniciando servidor Flask en puerto 5551...
 echo Presiona Ctrl+C para detener.
 echo.
 python app.py
