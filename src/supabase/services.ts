@@ -104,6 +104,17 @@ export async function getLocalPlaces(): Promise<PlaceItem[]> {
         cur.coordinates = initP.coordinates;
         modified = true;
       }
+      if (cur.precio === undefined && initP.precio !== undefined) {
+        cur.precio = initP.precio;
+        cur.precioUsd = initP.precioUsd;
+        cur.precioDetalle = initP.precioDetalle;
+        cur.horarioVisita = initP.horarioVisita;
+        cur.descripcionItems = initP.descripcionItems;
+        cur.consejo = initP.consejo;
+        cur.datoHistorico = initP.datoHistorico;
+        cur.badges = initP.badges;
+        modified = true;
+      }
     }
   }
   if (modified) {

@@ -25,6 +25,16 @@ export function AdminPlaceModal({
   const [featured, setFeatured] = useState(false);
   const [customImage, setCustomImage] = useState("");
 
+  // ── Nuevos campos editables para Administrador ───────────────────────────
+  const [precio, setPrecio] = useState("85");
+  const [precioUsd, setPrecioUsd] = useState("12.20");
+  const [precioDetalle, setPrecioDetalle] = useState("");
+  const [horarioVisita, setHorarioVisita] = useState("");
+  const [descripcionItems, setDescripcionItems] = useState("");
+  const [consejo, setConsejo] = useState("");
+  const [datoHistorico, setDatoHistorico] = useState("");
+  const [badges, setBadges] = useState("");
+
   useEffect(() => {
     if (editingPlace) {
       setTitle(editingPlace.title);
@@ -36,6 +46,20 @@ export function AdminPlaceModal({
       setTime(editingPlace.time);
       setFeatured(!!editingPlace.featured);
       setCustomImage("");
+      setPrecio(editingPlace.precio !== undefined ? String(editingPlace.precio) : "85");
+      setPrecioUsd(
+        editingPlace.precioUsd !== undefined
+          ? String(editingPlace.precioUsd)
+          : editingPlace.precio !== undefined
+          ? (Number(editingPlace.precio) / 6.96).toFixed(2)
+          : "12.20"
+      );
+      setPrecioDetalle(editingPlace.precioDetalle || "");
+      setHorarioVisita(editingPlace.horarioVisita || "");
+      setDescripcionItems(editingPlace.descripcionItems ? editingPlace.descripcionItems.join("\n") : "");
+      setConsejo(editingPlace.consejo || "");
+      setDatoHistorico(editingPlace.datoHistorico || "");
+      setBadges(editingPlace.badges ? editingPlace.badges.join(", ") : "");
     } else {
       setTitle("");
       setArea("");
@@ -46,6 +70,14 @@ export function AdminPlaceModal({
       setTime("2–3 h");
       setFeatured(false);
       setCustomImage("");
+      setPrecio("85");
+      setPrecioUsd("12.20");
+      setPrecioDetalle("");
+      setHorarioVisita("");
+      setDescripcionItems("");
+      setConsejo("");
+      setDatoHistorico("");
+      setBadges("");
     }
   }, [editingPlace, isOpen]);
 
@@ -65,6 +97,21 @@ export function AdminPlaceModal({
     if (!title.trim() || !area.trim()) return;
 
     const finalImage = customImage.trim() || image;
+    const descItemsArray = descripcionItems
+      .split("\n")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+    const badgesArray = badges
+      .split(",")
+      .map((b) => b.trim())
+      .filter((b) => b.length > 0);
+
+    const parsedPrecio = precio.trim() ? parseFloat(precio) : undefined;
+    const parsedPrecioUsd = precioUsd.trim()
+      ? parseFloat(precioUsd)
+      : parsedPrecio !== undefined
+      ? parseFloat((parsedPrecio / 6.96).toFixed(2))
+      : undefined;
 
     const savedItem: PlaceItem = {
       id: editingPlace ? editingPlace.id : `place-${Date.now()}`,
@@ -78,6 +125,14 @@ export function AdminPlaceModal({
       featured,
       visible: true,
       coordinates: editingPlace?.coordinates,
+      precio: parsedPrecio,
+      precioUsd: parsedPrecioUsd,
+      precioDetalle: precioDetalle.trim() || undefined,
+      horarioVisita: horarioVisita.trim() || undefined,
+      descripcionItems: descItemsArray.length > 0 ? descItemsArray : undefined,
+      consejo: consejo.trim() || undefined,
+      datoHistorico: datoHistorico.trim() || undefined,
+      badges: badgesArray.length > 0 ? badgesArray : undefined,
     };
 
     onSave(savedItem);
@@ -226,6 +281,126 @@ export function AdminPlaceModal({
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#F7931E]"></div>
             </label>
+          </div>
+
+          {/* ── Sección de Contenido Detallado y Precios (Admin) ── */}
+          <div className="rounded-2xl bg-[#FFF5F8] border border-[#FECDD3] p-4 space-y-3">
+            <h3 className="font-subtitle text-xs font-black uppercase tracking-wider text-[#BE123C] flex items-center gap-1.5">
+              <span>💳</span> Precios, Horarios y Guía del Atractivo (Editable)
+            </h3>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">
+                  Tarifa por Persona (Bs.)
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={precio}
+                  onChange={(e) => {
+                    setPrecio(e.target.value);
+                    if (e.target.value) {
+                      setPrecioUsd((parseFloat(e.target.value) / 6.96).toFixed(2));
+                    }
+                  }}
+                  placeholder="ej. 85"
+                  className="w-full rounded-xl border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs text-[#37474F] font-bold focus:border-[#D81B60] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">
+                  Tarifa en USD ($)
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={precioUsd}
+                  onChange={(e) => setPrecioUsd(e.target.value)}
+                  placeholder="ej. 12.20"
+                  className="w-full rounded-xl border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs text-[#37474F] font-bold focus:border-[#D81B60] focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">
+                Detalle de Precios / Ingreso
+              </label>
+              <input
+                type="text"
+                value={precioDetalle}
+                onChange={(e) => setPrecioDetalle(e.target.value)}
+                placeholder="ej. Teleférico: Bs. 10 ida y vuelta · Entrada al Cristo: Gratuita..."
+                className="w-full rounded-xl border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs text-[#37474F] focus:border-[#D81B60] focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">
+                Horarios de Visita
+              </label>
+              <input
+                type="text"
+                value={horarioVisita}
+                onChange={(e) => setHorarioVisita(e.target.value)}
+                placeholder="ej. Martes a Domingo de 08:30 a 19:00"
+                className="w-full rounded-xl border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs text-[#37474F] focus:border-[#D81B60] focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">
+                ¿Qué ver y experimentar aquí? (1 viñeta por renglón)
+              </label>
+              <textarea
+                rows={3}
+                value={descripcionItems}
+                onChange={(e) => setDescripcionItems(e.target.value)}
+                placeholder="Escribe cada punto en una línea nueva..."
+                className="w-full rounded-xl border border-[#E2D9CC] bg-white p-2 text-xs text-[#37474F] focus:border-[#D81B60] focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">
+                💡 Consejo para Viajeros
+              </label>
+              <textarea
+                rows={2}
+                value={consejo}
+                onChange={(e) => setConsejo(e.target.value)}
+                placeholder="ej. Sube cerca de las 17:30 para presenciar el atardecer..."
+                className="w-full rounded-xl border border-[#E2D9CC] bg-white p-2 text-xs text-[#37474F] focus:border-[#D81B60] focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">
+                📜 Dato Histórico / Curioso
+              </label>
+              <textarea
+                rows={2}
+                value={datoHistorico}
+                onChange={(e) => setDatoHistorico(e.target.value)}
+                placeholder="ej. Supera por centenas de centímetros al famoso Cristo Redentor..."
+                className="w-full rounded-xl border border-[#E2D9CC] bg-white p-2 text-xs text-[#37474F] focus:border-[#D81B60] focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-subtitle font-bold text-[#37474F] mb-1">
+                Badges / Insignias (separadas por comas)
+              </label>
+              <input
+                type="text"
+                value={badges}
+                onChange={(e) => setBadges(e.target.value)}
+                placeholder="ej. IMPERDIBLE, Destacado, Aventura 2026"
+                className="w-full rounded-xl border border-[#E2D9CC] bg-white px-3 py-1.5 text-xs text-[#37474F] focus:border-[#D81B60] focus:outline-none"
+              />
+            </div>
           </div>
 
           {/* Selector de Fotografía */}

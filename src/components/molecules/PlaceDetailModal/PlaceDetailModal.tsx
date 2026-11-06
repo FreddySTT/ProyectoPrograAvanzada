@@ -111,20 +111,24 @@ interface PlaceDetailModalProps {
   isOpen: boolean;
   place: PlaceItem | null;
   isFavorite: boolean;
+  isEffectiveAdmin?: boolean;
   onClose: () => void;
   onToggleFavorite: (title: string) => void;
   onOpenZoomModal: (place: PlaceItem) => void;
   onOpenBookingPayment: (place: PlaceItem) => void;
+  onEditPlace?: (place: PlaceItem) => void;
 }
 
 export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
   isOpen,
   place,
   isFavorite,
+  isEffectiveAdmin,
   onClose,
   onToggleFavorite,
   onOpenZoomModal,
   onOpenBookingPayment,
+  onEditPlace,
 }) => {
   if (!isOpen || !place) return null;
 
@@ -207,6 +211,19 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
 
           {/* Close & Favorite buttons */}
           <div className="absolute right-4 top-4 flex items-center gap-2 z-20">
+            {isEffectiveAdmin && onEditPlace && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onEditPlace(place);
+                }}
+                className="flex items-center gap-1 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-900 font-subtitle text-xs font-black px-3.5 py-2 shadow-xl transition hover:scale-105 border border-amber-500 cursor-pointer"
+                title="Editar todos los campos de este destino"
+              >
+                <span>✏️ Editar (Admin)</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onToggleFavorite(place.title)}
@@ -321,6 +338,19 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            {isEffectiveAdmin && onEditPlace && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onEditPlace(place);
+                }}
+                className="flex-1 sm:flex-none rounded-xl border border-amber-500 bg-amber-100/80 hover:bg-amber-200 text-slate-900 px-4 py-3 font-subtitle text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <span>✏️ Editar Campos</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => onOpenZoomModal(place)}

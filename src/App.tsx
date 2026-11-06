@@ -509,13 +509,16 @@ function MainApp() {
       const exists = prev.some((p) => p.id === placeToSave.id);
       return exists ? prev.map((p) => (p.id === placeToSave.id ? placeToSave : p)) : [placeToSave, ...prev];
     });
-     notify(
-    editingPlace
-      ? `¡Los cambios de "${placeToSave.title}" se guardaron correctamente!`
-      : `¡El destino "${placeToSave.title}" se guardó correctamente!`
-  );
-  setEditingPlace(null);
-};
+    if (selectedDetailPlace && selectedDetailPlace.id === placeToSave.id) {
+      setSelectedDetailPlace(placeToSave);
+    }
+    notify(
+      editingPlace
+        ? `¡Los cambios de "${placeToSave.title}" se guardaron correctamente!`
+        : `¡El destino "${placeToSave.title}" se guardó correctamente!`
+    );
+    setEditingPlace(null);
+  };
 
   const handleDeletePlace = async (id: string, title: string) => {
     if (confirm(`¿Estás seguro de eliminar el destino "${title}"?`)) {
@@ -860,6 +863,7 @@ function MainApp() {
         isOpen={isDetailModalOpen}
         place={selectedDetailPlace}
         isFavorite={selectedDetailPlace ? favorites.includes(selectedDetailPlace.title) : false}
+        isEffectiveAdmin={isEffectiveAdmin}
         onClose={() => {
           setIsDetailModalOpen(false);
           setSelectedDetailPlace(null);
@@ -867,6 +871,7 @@ function MainApp() {
         onToggleFavorite={toggleFavorite}
         onOpenZoomModal={openZoomModal}
         onOpenBookingPayment={(place) => openPaymentModal(place)}
+        onEditPlace={openEditPlaceModal}
       />
 
       {/* ── Payment & Reservation Modal (Booking Style) ── */}
