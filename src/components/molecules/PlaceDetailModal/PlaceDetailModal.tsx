@@ -208,9 +208,17 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
       );
       setIsEditing(false);
     }
-  }, [place?.id]);
+    if (!isEffectiveAdmin) {
+      setIsEditing(false);
+    }
+  }, [place?.id, isEffectiveAdmin]);
 
   const handleSaveInline = () => {
+    if (!isEffectiveAdmin) {
+      alert("Acceso denegado: Solo el administrador tiene permisos para editar y guardar cambios.");
+      setIsEditing(false);
+      return;
+    }
     const parsedPrecio = draftPrecio.trim() ? parseFloat(draftPrecio) : undefined;
     const parsedPrecioUsd = draftPrecioUsd.trim()
       ? parseFloat(draftPrecioUsd)
@@ -276,9 +284,9 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
 
           {/* Floating Badges */}
           <div className="absolute left-4 top-4 flex flex-wrap gap-2 pointer-events-none z-10">
-            {isEditing ? (
+            {isEditing && isEffectiveAdmin ? (
               <span className="rounded-full bg-amber-500 text-slate-900 px-3.5 py-1 text-xs font-subtitle font-black uppercase tracking-wider shadow-lg">
-                ✏️ Editando Atractivo
+                ✏️ Editando Atractivo (Admin)
               </span>
             ) : (
               <>
@@ -314,49 +322,51 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
 
           {/* Header Action Buttons (Siempre accesibles) */}
           <div className="absolute right-4 top-4 flex items-center gap-2 z-20">
-            {isEditing ? (
-              <>
-                <button
-                  type="button"
-                  onClick={handleSaveInline}
-                  className="flex items-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-subtitle text-xs font-black px-4 py-2 shadow-xl transition hover:scale-105 cursor-pointer border border-emerald-400"
-                  title="Guardar todos los cambios"
-                >
-                  <span>💾 Guardar</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  className="rounded-full bg-slate-800/90 hover:bg-slate-700 text-white font-subtitle text-xs font-bold px-3 py-2 shadow-xl transition cursor-pointer"
-                  title="Cancelar cambios"
-                >
-                  Cancelar
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-900 font-subtitle text-xs font-black px-3.5 py-2 shadow-xl transition hover:scale-105 border border-amber-500 cursor-pointer"
-                  title="Editar todos los textos, precios y datos de esta ventana"
-                >
-                  <span>✏️ Editar Todo</span>
-                </button>
-                {isEffectiveAdmin && onEditPlace && (
+            {isEffectiveAdmin && (
+              isEditing ? (
+                <>
                   <button
                     type="button"
-                    onClick={() => {
-                      onClose();
-                      onEditPlace(place);
-                    }}
-                    className="hidden sm:flex items-center gap-1 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white font-subtitle text-[11px] font-bold px-3 py-2 shadow-xl transition border border-slate-700 cursor-pointer"
-                    title="Abrir panel avanzado"
+                    onClick={handleSaveInline}
+                    className="flex items-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-subtitle text-xs font-black px-4 py-2 shadow-xl transition hover:scale-105 cursor-pointer border border-emerald-400"
+                    title="Guardar todos los cambios"
                   >
-                    <span>⚙️ Avanzado</span>
+                    <span>💾 Guardar</span>
                   </button>
-                )}
-              </>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    className="rounded-full bg-slate-800/90 hover:bg-slate-700 text-white font-subtitle text-xs font-bold px-3 py-2 shadow-xl transition cursor-pointer"
+                    title="Cancelar cambios"
+                  >
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="flex items-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-900 font-subtitle text-xs font-black px-3.5 py-2 shadow-xl transition hover:scale-105 border border-amber-500 cursor-pointer"
+                    title="Editar todos los textos, precios y datos de esta ventana (Solo Administrador)"
+                  >
+                    <span>✏️ Editar Todo</span>
+                  </button>
+                  {onEditPlace && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onEditPlace(place);
+                      }}
+                      className="hidden sm:flex items-center gap-1 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white font-subtitle text-[11px] font-bold px-3 py-2 shadow-xl transition border border-slate-700 cursor-pointer"
+                      title="Abrir panel avanzado"
+                    >
+                      <span>⚙️ Avanzado</span>
+                    </button>
+                  )}
+                </>
+              )
             )}
 
             <button
@@ -382,8 +392,8 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
 
         {/* Modal Scrollable Body */}
         <div className="overflow-y-auto p-6 space-y-6">
-          {isEditing ? (
-            /* ── MODO EDICIÓN DIRECTO EN PANTALLA ── */
+          {isEditing && isEffectiveAdmin ? (
+            /* ── MODO EDICIÓN DIRECTO EN PANTALLA (SOLO ADMIN) ── */
             <div className="space-y-5">
               <div className="rounded-2xl bg-amber-50 border-2 border-amber-300 p-3.5 text-xs text-amber-900 font-bold flex items-center justify-between">
                 <span>✏️ Estás editando este destino. Modifica lo que gustes y haz clic en "Guardar Cambios".</span>
@@ -726,55 +736,55 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto">
-            {isEditing ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  className="flex-1 sm:flex-none rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-4 py-3 font-subtitle text-xs font-bold transition cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveInline}
-                  className="flex-1 sm:flex-none rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 font-subtitle text-xs font-black shadow-lg shadow-emerald-600/30 transition hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>💾 Guardar Cambios</span>
-                </button>
-              </>
-            ) : (
-              <>
+            {isEffectiveAdmin && (
+              isEditing ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    className="flex-1 sm:flex-none rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-4 py-3 font-subtitle text-xs font-bold transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveInline}
+                    className="flex-1 sm:flex-none rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 font-subtitle text-xs font-black shadow-lg shadow-emerald-600/30 transition hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <span>💾 Guardar Cambios</span>
+                  </button>
+                </>
+              ) : (
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
                   className="flex-1 sm:flex-none rounded-xl border-2 border-amber-500 bg-amber-400 hover:bg-amber-300 text-slate-900 px-4 py-3 font-subtitle text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:scale-105"
-                  title="Editar todos los campos de este destino directamente"
+                  title="Editar todos los campos de este destino directamente (Solo Administrador)"
                 >
                   <span>✏️ Editar Todo</span>
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => onOpenZoomModal(place)}
-                  className="flex-1 sm:flex-none rounded-xl border border-[#D81B60] bg-white text-[#D81B60] hover:bg-[#FFF1F2] px-4 py-3 font-subtitle text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <span>🔍 Foto con Lupa</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onOpenBookingPayment(place);
-                  }}
-                  className="flex-1 sm:flex-none rounded-xl bg-gradient-to-r from-[#D81B60] to-[#b0144c] hover:from-[#c21453] hover:to-[#96103f] text-white px-6 py-3 font-subtitle text-xs font-black shadow-lg shadow-[#D81B60]/30 transition hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>💳 Reservar y Pagar</span>
-                  <span>→</span>
-                </button>
-              </>
+              )
             )}
+
+            <button
+              type="button"
+              onClick={() => onOpenZoomModal(place)}
+              className="flex-1 sm:flex-none rounded-xl border border-[#D81B60] bg-white text-[#D81B60] hover:bg-[#FFF1F2] px-4 py-3 font-subtitle text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span>🔍 Foto con Lupa</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenBookingPayment(place);
+              }}
+              className="flex-1 sm:flex-none rounded-xl bg-gradient-to-r from-[#D81B60] to-[#b0144c] hover:from-[#c21453] hover:to-[#96103f] text-white px-6 py-3 font-subtitle text-xs font-black shadow-lg shadow-[#D81B60]/30 transition hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>💳 Reservar y Pagar</span>
+              <span>→</span>
+            </button>
           </div>
         </div>
       </div>

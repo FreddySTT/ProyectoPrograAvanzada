@@ -68,3 +68,28 @@ def test_token_expirado_unauthorized(client):
     assert data["title"] == "Unauthorized"
     assert "ha expirado" in data["detail"]
 
+def test_require_role_operador_denegado_para_editar_lugares(client):
+    """Verifica que un operador no pueda editar atractivos turísticos; solo admin puede hacerlo."""
+    token = jwt.encode(
+        {
+            "sub": "user-operador-789",
+            "email": "operador@riqsirutas.bo",
+            "user_metadata": {"role": "operador"},
+            "exp": datetime.utcnow() + timedelta(hours=1),
+        },
+        "test-secret",
+        algorithm="HS256",
+    )
+
+    resp = client.put(
+        "/api/places/place-1",
+        json={"title": "Intento de operador", "area": "San Pedro"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    # Debe ser denegado con 403 Forbidden
+    assert resp.status_code == 403
+    data = resp.get_json()
+    assert data["title"] == "Forbidden"
+    assert "no tiene permiso" in data["detail"].lower()
+
+

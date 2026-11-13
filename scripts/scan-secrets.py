@@ -63,3 +63,4 @@ def scan_tracked_files():
 if __name__ == "__main__":
     count = scan_tracked_files()
     sys.exit(0)
+

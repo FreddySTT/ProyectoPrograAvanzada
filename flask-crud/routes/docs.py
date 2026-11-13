@@ -92,7 +92,7 @@ OPENAPI_SPEC = {
                 "responses": {
                     "201": {"description": "Lugar creado"},
                     "401": {"description": "No autorizado"},
-                    "403": {"description": "Requiere rol admin u operador"}
+                    "403": {"description": "Requiere rol admin"}
                 }
             }
         },

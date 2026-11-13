@@ -74,3 +74,4 @@ export function generateSrcSet(
     .map((w) => `${getOptimizedImageUrl(url, { width: w })} ${w}w`)
     .join(', ')
 }
+

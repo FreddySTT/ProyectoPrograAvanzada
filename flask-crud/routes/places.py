@@ -119,7 +119,7 @@ def obtener_destino_por_id(place_id):
     return make_problem_response(404, "Not Found", f"Lugar '{place_id}' no encontrado.")
 
 @places_bp.route("", methods=["POST"])
-@require_role(["admin", "operador"])
+@require_role(["admin"])
 def crear_destino():
     raw_data = request.get_json(silent=True) or {}
     norm = normalizar_payload_lugar(raw_data)
@@ -142,7 +142,7 @@ def crear_destino():
     }), 201
 
 @places_bp.route("/<place_id>", methods=["PUT", "PATCH"])
-@require_role(["admin", "operador"])
+@require_role(["admin"])
 def actualizar_destino(place_id):
     """Permite al administrador editar cualquier campo visible en pantalla con persistencia inmediata."""
     raw_data = request.get_json(silent=True) or {}

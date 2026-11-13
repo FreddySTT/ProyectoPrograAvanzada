@@ -162,3 +162,4 @@ describe('E2E Flow — Flujo de Reserva y Comprobante de Pago', () => {
     ).toThrow('Mínimo 1 pasajero requerido')
   })
 })
+
