@@ -2,6 +2,7 @@ import React from "react";
 import { Icon } from "../../atoms/Icon/Icon";
 import { ZoomImage } from "../../atoms/ZoomImage/ZoomImage";
 import type { PlaceItem } from "../../../types/auth";
+import { uploadPlaceImageDual } from "../../../supabase/services";
 
 export interface PlaceGuideDetails {
   highlights: string[];
@@ -159,6 +160,8 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
   const [isEditing, setIsEditing] = React.useState(false);
   const [draftTitle, setDraftTitle] = React.useState(place.title);
   const [draftArea, setDraftArea] = React.useState(place.area);
+  const [draftImage, setDraftImage] = React.useState(place.image);
+  const [isUploadingImage, setIsUploadingImage] = React.useState(false);
   const [draftRating, setDraftRating] = React.useState(place.rating);
   const [draftTime, setDraftTime] = React.useState(place.time);
   const [draftPrecio, setDraftPrecio] = React.useState(place.precio !== undefined ? String(place.precio) : "85");
@@ -182,6 +185,7 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
     if (place) {
       setDraftTitle(place.title);
       setDraftArea(place.area);
+      setDraftImage(place.image);
       setDraftRating(place.rating);
       setDraftTime(place.time);
       setDraftPrecio(place.precio !== undefined ? String(place.precio) : "85");
@@ -223,6 +227,7 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
       ...place,
       title: draftTitle.trim() || place.title,
       area: draftArea.trim() || place.area,
+      image: draftImage.trim() || place.image,
       rating: draftRating.trim() || place.rating,
       time: draftTime.trim() || place.time,
       precio: parsedPrecio,
@@ -403,6 +408,52 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
                     onChange={(e) => setDraftTitle(e.target.value)}
                     className="w-full font-display text-xl font-black text-[#37474F] border-2 border-[#D81B60] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#D81B60]/30"
                   />
+                </div>
+
+                {/* Imagen del Atractivo (URL o Subida a Cloud Storage) */}
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2">
+                  <label className="block text-[11px] font-subtitle font-bold text-slate-700">
+                    📸 Foto / Imagen del Atractivo (Firebase & Supabase Storage):
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={draftImage}
+                      onChange={(e) => setDraftImage(e.target.value)}
+                      placeholder="/assets/... o https://..."
+                      className="flex-1 text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white font-mono"
+                    />
+                    <label className="cursor-pointer rounded-lg bg-[#1E293B] hover:bg-slate-700 text-white px-3 py-1.5 text-xs font-bold shrink-0 flex items-center gap-1 shadow-xs">
+                      <span>{isUploadingImage ? "⏳ Subiendo..." : "📁 Subir Foto"}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={isUploadingImage}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setIsUploadingImage(true);
+                          try {
+                            const uploadedUrl = await uploadPlaceImageDual(file, `${place.id}_${Date.now()}.jpg`);
+                            if (uploadedUrl) {
+                              setDraftImage(uploadedUrl);
+                            }
+                          } catch (err) {
+                            console.warn("Error subiendo foto:", err);
+                          } finally {
+                            setIsUploadingImage(false);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                  {draftImage && (
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
+                      <span className="truncate">Vista previa: {draftImage}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Icon } from "../../atoms/Icon/Icon";
 import { Badge } from "../../atoms/Badge/Badge";
 import type { PlaceItem } from "../../../types/auth";
+import { saveBookingDual } from "../../../supabase/services";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -118,6 +119,38 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         clientPhone,
         date: new Date().toLocaleDateString("es-BO", { day: "numeric", month: "long", year: "numeric" }),
       };
+
+      // ── Replicar Reserva a Firebase, Supabase y LocalStorage ───────────────
+      saveBookingDual({
+        id: `booking-${bookingData.bookingCode}`,
+        placeId: place.id,
+        placeTitle: place.title,
+        clientName,
+        clientEmail,
+        clientPhone,
+        date: bookingData.date,
+        tickets: travelersCount,
+        totalBs: finalTotalBob,
+        totalUsd: Number(finalTotalUsd),
+        status: "confirmed",
+      }).catch((e) => console.warn("[PaymentModal] Error guardando reserva dual:", e));
+
+      // ── Replicar a Backend Flask en port 5551 ──────────────────────────────
+      fetch("http://localhost:5551/api/payments/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lugar_id: place.id,
+          lugar_nombre: place.title,
+          cliente_nombre: clientName,
+          cliente_email: clientEmail,
+          cliente_telefono: clientPhone,
+          metodo_pago: paymentMethod,
+          monto_total: finalTotalBob,
+          monto_usd: Number(finalTotalUsd),
+          pasajeros: travelersCount,
+        }),
+      }).catch(() => {});
 
       setConfirmedBooking(bookingData);
       setIsProcessing(false);

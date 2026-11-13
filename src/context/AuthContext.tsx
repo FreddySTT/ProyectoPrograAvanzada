@@ -258,6 +258,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastLogin: new Date().toISOString(),
     };
 
+    // Replicar en segundo plano a Firebase Auth en modo Dual
+    if (BACKEND === "dual") {
+      firebaseLogin(candidate.email, password).catch(() => {});
+    }
+
     setCurrentUser(safeUser);
     setPreviewAsNormal(false);
     setFailedAttempts(0);
@@ -338,6 +343,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     await saveUserToDatabase(newUser);
+
+    // Replicar en segundo plano a Firebase Auth en modo Dual
+    if (BACKEND === "dual") {
+      firebaseRegister(cleanEmail, password, name.trim()).catch(() => {});
+    }
+
     setUsers((prev) => [newUser, ...prev]);
     setCurrentUser(newUser);
 
@@ -355,9 +366,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     const emailBefore = currentUser?.email || "anon";
 
-    // ── Modo Firebase: cerrar sesión en Firebase Auth ─────────────────────────
-    if (BACKEND === "firebase") {
-      await firebaseLogout();
+    // ── Modo Firebase / Dual: cerrar sesión en Firebase Auth ─────────────────
+    if (BACKEND === "firebase" || BACKEND === "dual") {
+      await firebaseLogout().catch(() => {});
     }
 
     setCurrentUser(null);
@@ -449,6 +460,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     await saveUserToDatabase(newUser);
+
+    // Replicar en segundo plano a Firebase Auth en modo Dual
+    if (BACKEND === "dual") {
+      firebaseRegister(cleanEmail, password, name.trim()).catch(() => {});
+    }
+
     setUsers((prev) => [newUser, ...prev]);
 
     await logSecurityEvent({
