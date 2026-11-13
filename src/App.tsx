@@ -873,6 +873,7 @@ function MainApp() {
         onOpenZoomModal={openZoomModal}
         onOpenBookingPayment={(place) => openPaymentModal(place)}
         onEditPlace={openEditPlaceModal}
+        onSavePlace={handleSavePlace}
       />
 
       {/* ── Payment & Reservation Modal (Booking Style) ── */}

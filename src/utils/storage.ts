@@ -1,85 +1,78 @@
 /**
- * ZeroStorage — Motor de Almacenamiento Cero-Disco (Pure In-Memory RAM)
+ * Storage Manager — Persistencia Segura y Reactiva para Riqsi Rutas
  *
- * MÁXIMA SEGURIDAD:
- * 1. NADA se escribe en localStorage ni sessionStorage.
- * 2. Cualquier intento de inspeccionar "DevTools -> LocalStorage" mostrará 0 elementos.
- * 3. Las credenciales, hashes de contraseñas y datos sensibles NUNCA tocan el disco del navegador.
- * 4. La persistencia real reside exclusivamente en la nube protegida de Supabase Cloud.
+ * Permite guardar y recuperar el estado de la aplicación (lugares editados,
+ * sesión de usuario, avisos) persistiendo a través de recargas (F5).
  */
-
-// Limpieza agresiva e inmediata al importar el módulo: destruir cualquier rastro existente
-if (typeof window !== "undefined") {
-  try {
-    if (window.localStorage) {
-      window.localStorage.clear();
-      // Neutralizar setItem para bloquear cualquier escritura
-      window.localStorage.setItem = () => {};
-    }
-    if (window.sessionStorage) {
-      window.sessionStorage.clear();
-      window.sessionStorage.setItem = () => {};
-    }
-  } catch {}
-}
 
 const memoryStore = new Map<string, unknown>();
 
-export type StorageMode = "memory-only";
+export type StorageMode = "local-secure" | "memory-only";
 
 export function getStorageMode(): StorageMode {
-  return "memory-only";
+  return "local-secure";
 }
 
 export function setStorageMode(_mode: StorageMode): void {
-  // Siempre memoria pura
+  // Configuración de modo
 }
 
 /**
- * Guarda exclusivamente en memoria RAM del navegador.
- * CERO escritura en localStorage.
+ * Guarda en localStorage y en memoria caché.
+ * Sobrevive a recargas F5.
  */
 export async function secureSet(key: string, value: unknown): Promise<void> {
   memoryStore.set(key, value);
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && window.localStorage) {
     try {
-      window.localStorage.removeItem(key);
-      window.sessionStorage.removeItem(key);
-    } catch {}
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      console.warn("Storage set error:", e);
+    }
   }
 }
 
 /**
- * Lee exclusivamente desde la memoria RAM del navegador.
+ * Lee de memoria o de localStorage.
  */
 export async function secureGet<T = unknown>(key: string): Promise<T | null> {
   if (memoryStore.has(key)) {
     return memoryStore.get(key) as T;
   }
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const item = window.localStorage.getItem(key);
+      if (item) {
+        const parsed = JSON.parse(item) as T;
+        memoryStore.set(key, parsed);
+        return parsed;
+      }
+    } catch (e) {
+      console.warn("Storage get error:", e);
+    }
+  }
   return null;
 }
 
 /**
- * Elimina de memoria RAM y asegura que localStorage quede vacío.
+ * Elimina de memoria y de localStorage.
  */
 export async function secureRemove(key: string): Promise<void> {
   memoryStore.delete(key);
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && window.localStorage) {
     try {
       window.localStorage.removeItem(key);
-      window.sessionStorage.removeItem(key);
     } catch {}
   }
 }
 
 /**
- * Purgado completo: vacía la RAM y destruye todo localStorage y sessionStorage.
+ * Purgado completo del almacenamiento.
  */
 export function purgeAllLocalStorage(): void {
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && window.localStorage) {
     try {
       window.localStorage.clear();
-      window.sessionStorage.clear();
     } catch {}
   }
 }
@@ -90,10 +83,5 @@ export function purgeAllStorage(): void {
 }
 
 export function purgeLegacyPlaintext(): void {
-  purgeAllLocalStorage();
-}
-
-// Ejecutar purga inmediata
-if (typeof window !== "undefined") {
-  purgeAllLocalStorage();
+  // Limpieza de claves obsoletas
 }

@@ -117,6 +117,7 @@ interface PlaceDetailModalProps {
   onOpenZoomModal: (place: PlaceItem) => void;
   onOpenBookingPayment: (place: PlaceItem) => void;
   onEditPlace?: (place: PlaceItem) => void;
+  onSavePlace?: (place: PlaceItem) => void;
 }
 
 export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
@@ -129,6 +130,7 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
   onOpenZoomModal,
   onOpenBookingPayment,
   onEditPlace,
+  onSavePlace,
 }) => {
   if (!isOpen || !place) return null;
 
@@ -145,13 +147,101 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
     curiousFact: "Este atractivo forma parte del circuito patrimonial y turístico del Bicentenario de Cochabamba.",
   };
 
-  const highlights = (place.descripcionItems && place.descripcionItems.length > 0)
+  const initialHighlights = (place.descripcionItems && place.descripcionItems.length > 0)
     ? place.descripcionItems
     : guide.highlights;
-  const schedule = place.horarioVisita || guide.schedule;
-  const priceEstimate = place.precioDetalle || guide.priceEstimate;
-  const insiderTip = place.consejo || guide.insiderTip;
-  const curiousFact = place.datoHistorico || guide.curiousFact;
+  const initialSchedule = place.horarioVisita || guide.schedule;
+  const initialPriceEstimate = place.precioDetalle || guide.priceEstimate;
+  const initialInsiderTip = place.consejo || guide.insiderTip;
+  const initialCuriousFact = place.datoHistorico || guide.curiousFact;
+
+  // ── Modo Edición en Línea ──────────────────────────────────────────────
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [draftTitle, setDraftTitle] = React.useState(place.title);
+  const [draftArea, setDraftArea] = React.useState(place.area);
+  const [draftRating, setDraftRating] = React.useState(place.rating);
+  const [draftTime, setDraftTime] = React.useState(place.time);
+  const [draftPrecio, setDraftPrecio] = React.useState(place.precio !== undefined ? String(place.precio) : "85");
+  const [draftPrecioUsd, setDraftPrecioUsd] = React.useState(
+    place.precioUsd !== undefined
+      ? String(place.precioUsd)
+      : place.precio !== undefined
+      ? (Number(place.precio) / 6.96).toFixed(2)
+      : "12.20"
+  );
+  const [draftPrecioDetalle, setDraftPrecioDetalle] = React.useState(initialPriceEstimate);
+  const [draftSchedule, setDraftSchedule] = React.useState(initialSchedule);
+  const [draftHighlights, setDraftHighlights] = React.useState<string[]>(initialHighlights);
+  const [draftInsiderTip, setDraftInsiderTip] = React.useState(initialInsiderTip);
+  const [draftCuriousFact, setDraftCuriousFact] = React.useState(initialCuriousFact);
+  const [draftBadges, setDraftBadges] = React.useState(
+    (place.badges && place.badges.length > 0) ? place.badges.join(", ") : (place.tag || "IMPERDIBLE")
+  );
+
+  React.useEffect(() => {
+    if (place) {
+      setDraftTitle(place.title);
+      setDraftArea(place.area);
+      setDraftRating(place.rating);
+      setDraftTime(place.time);
+      setDraftPrecio(place.precio !== undefined ? String(place.precio) : "85");
+      setDraftPrecioUsd(
+        place.precioUsd !== undefined
+          ? String(place.precioUsd)
+          : place.precio !== undefined
+          ? (Number(place.precio) / 6.96).toFixed(2)
+          : "12.20"
+      );
+      setDraftPrecioDetalle(place.precioDetalle || guide.priceEstimate);
+      setDraftSchedule(place.horarioVisita || guide.schedule);
+      setDraftHighlights(
+        (place.descripcionItems && place.descripcionItems.length > 0) ? place.descripcionItems : guide.highlights
+      );
+      setDraftInsiderTip(place.consejo || guide.insiderTip);
+      setDraftCuriousFact(place.datoHistorico || guide.curiousFact);
+      setDraftBadges(
+        (place.badges && place.badges.length > 0) ? place.badges.join(", ") : (place.tag || "IMPERDIBLE")
+      );
+      setIsEditing(false);
+    }
+  }, [place?.id]);
+
+  const handleSaveInline = () => {
+    const parsedPrecio = draftPrecio.trim() ? parseFloat(draftPrecio) : undefined;
+    const parsedPrecioUsd = draftPrecioUsd.trim()
+      ? parseFloat(draftPrecioUsd)
+      : parsedPrecio !== undefined
+      ? parseFloat((parsedPrecio / 6.96).toFixed(2))
+      : undefined;
+
+    const badgesArray = draftBadges
+      .split(",")
+      .map((b) => b.trim())
+      .filter((b) => b.length > 0);
+
+    const updated: PlaceItem = {
+      ...place,
+      title: draftTitle.trim() || place.title,
+      area: draftArea.trim() || place.area,
+      rating: draftRating.trim() || place.rating,
+      time: draftTime.trim() || place.time,
+      precio: parsedPrecio,
+      precioUsd: parsedPrecioUsd,
+      precioDetalle: draftPrecioDetalle.trim() || undefined,
+      horarioVisita: draftSchedule.trim() || undefined,
+      descripcionItems: draftHighlights.map((h) => h.trim()).filter((h) => h.length > 0),
+      consejo: draftInsiderTip.trim() || undefined,
+      datoHistorico: draftCuriousFact.trim() || undefined,
+      badges: badgesArray.length > 0 ? badgesArray : undefined,
+      tag: badgesArray[0] || place.tag,
+    };
+
+    if (onSavePlace) {
+      onSavePlace(updated);
+    }
+    setIsEditing(false);
+  };
+
   const displayPriceBob = place.precio !== undefined ? `Bs. ${place.precio}` : "Bs. 85";
   const displayPriceUsd = place.precioUsd !== undefined 
     ? `($${Number(place.precioUsd).toFixed(2)} USD)` 
@@ -181,19 +271,27 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
 
           {/* Floating Badges */}
           <div className="absolute left-4 top-4 flex flex-wrap gap-2 pointer-events-none z-10">
-            <span className="rounded-full bg-[#D81B60] text-white px-3.5 py-1 text-xs font-subtitle font-black uppercase tracking-wider shadow-lg">
-              {place.tag || place.category}
-            </span>
-            {place.featured && (
-              <span className="rounded-full bg-[#F7931E] text-white px-3 py-1 text-xs font-subtitle font-black shadow-lg flex items-center gap-1">
-                ⭐ Destacado
+            {isEditing ? (
+              <span className="rounded-full bg-amber-500 text-slate-900 px-3.5 py-1 text-xs font-subtitle font-black uppercase tracking-wider shadow-lg">
+                ✏️ Editando Atractivo
               </span>
+            ) : (
+              <>
+                <span className="rounded-full bg-[#D81B60] text-white px-3.5 py-1 text-xs font-subtitle font-black uppercase tracking-wider shadow-lg">
+                  {place.tag || place.category}
+                </span>
+                {place.featured && (
+                  <span className="rounded-full bg-[#F7931E] text-white px-3 py-1 text-xs font-subtitle font-black shadow-lg flex items-center gap-1">
+                    ⭐ Destacado
+                  </span>
+                )}
+                {place.badges && place.badges.map((b, idx) => (
+                  <span key={idx} className="rounded-full bg-[#7C3AED] text-white px-3 py-1 text-xs font-subtitle font-black shadow-lg">
+                    {b}
+                  </span>
+                ))}
+              </>
             )}
-            {place.badges && place.badges.map((b, idx) => (
-              <span key={idx} className="rounded-full bg-[#7C3AED] text-white px-3 py-1 text-xs font-subtitle font-black shadow-lg">
-                {b}
-              </span>
-            ))}
           </div>
 
           {/* Quick Zoom Lens Button (Muy Visible) */}
@@ -209,21 +307,53 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
             <span>Ver Lupa / Zoom Pantalla Completa</span>
           </button>
 
-          {/* Close & Favorite buttons */}
+          {/* Header Action Buttons (Siempre accesibles) */}
           <div className="absolute right-4 top-4 flex items-center gap-2 z-20">
-            {isEffectiveAdmin && onEditPlace && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onEditPlace(place);
-                }}
-                className="flex items-center gap-1 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-900 font-subtitle text-xs font-black px-3.5 py-2 shadow-xl transition hover:scale-105 border border-amber-500 cursor-pointer"
-                title="Editar todos los campos de este destino"
-              >
-                <span>✏️ Editar (Admin)</span>
-              </button>
+            {isEditing ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleSaveInline}
+                  className="flex items-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-subtitle text-xs font-black px-4 py-2 shadow-xl transition hover:scale-105 cursor-pointer border border-emerald-400"
+                  title="Guardar todos los cambios"
+                >
+                  <span>💾 Guardar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="rounded-full bg-slate-800/90 hover:bg-slate-700 text-white font-subtitle text-xs font-bold px-3 py-2 shadow-xl transition cursor-pointer"
+                  title="Cancelar cambios"
+                >
+                  Cancelar
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-900 font-subtitle text-xs font-black px-3.5 py-2 shadow-xl transition hover:scale-105 border border-amber-500 cursor-pointer"
+                  title="Editar todos los textos, precios y datos de esta ventana"
+                >
+                  <span>✏️ Editar Todo</span>
+                </button>
+                {isEffectiveAdmin && onEditPlace && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onEditPlace(place);
+                    }}
+                    className="hidden sm:flex items-center gap-1 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white font-subtitle text-[11px] font-bold px-3 py-2 shadow-xl transition border border-slate-700 cursor-pointer"
+                    title="Abrir panel avanzado"
+                  >
+                    <span>⚙️ Avanzado</span>
+                  </button>
+                )}
+              </>
             )}
+
             <button
               type="button"
               onClick={() => onToggleFavorite(place.title)}
@@ -237,7 +367,7 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="grid h-10 w-10 place-items-center rounded-full bg-black/60 hover:bg-black/80 text-white transition backdrop-blur-md shadow-xl text-base"
+              className="grid h-10 w-10 place-items-center rounded-full bg-black/60 hover:bg-black/80 text-white transition backdrop-blur-md shadow-xl text-base cursor-pointer"
               title="Cerrar ventana"
             >
               ✕
@@ -247,129 +377,353 @@ export const PlaceDetailModal: React.FC<PlaceDetailModalProps> = ({
 
         {/* Modal Scrollable Body */}
         <div className="overflow-y-auto p-6 space-y-6">
-          {/* Title & Metadata */}
-          <div>
-            <div className="flex items-center justify-between text-xs font-bold text-[#6D4C41] mb-1">
-              <span className="flex items-center gap-1">
-                <Icon name="pin" size={15} /> {place.area}
-              </span>
-              <span className="flex items-center gap-1 bg-[#FEF3C7] text-[#B45309] px-2.5 py-0.5 rounded-full border border-[#FDE68A]">
-                ★ {place.rating} Excelente
-              </span>
-            </div>
-            <h2 className="font-display text-2xl sm:text-3xl font-black text-[#37474F]">
-              {place.title}
-            </h2>
-            <div className="mt-2 flex items-center gap-4 text-xs font-semibold text-[#6D4C41]">
-              <span className="flex items-center gap-1">
-                <Icon name="clock" size={15} /> Duración estimada: {place.time}
-              </span>
-              <span className="flex items-center gap-1 text-[#4CAF50] font-bold">
-                ✓ Experiencia verificada
-              </span>
-            </div>
-          </div>
-
-          {/* Qué ver y experimentar aquí */}
-          <div className="rounded-2xl bg-[#FAF7F2] border border-[#E2D9CC] p-4 sm:p-5">
-            <h3 className="font-subtitle text-sm font-black text-[#37474F] uppercase tracking-wider mb-3 flex items-center gap-2">
-              <span className="text-[#D81B60]">✦</span> ¿Qué ver y experimentar aquí?
-            </h3>
-            <ul className="space-y-2 text-xs sm:text-sm text-[#37474F]">
-              {highlights.map((h, i) => (
-                <li key={i} className="flex items-start gap-2.5">
-                  <span className="text-[#D81B60] font-black mt-0.5">✔</span>
-                  <span className="leading-relaxed">{h}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Horarios & Precios */}
-          <div className="grid sm:grid-cols-2 gap-3 text-xs">
-            <div className="rounded-2xl bg-[#FFFBEB] border border-[#FDE68A] p-4">
-              <div className="font-subtitle font-black text-[#B45309] uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                <Icon name="calendar" size={14} /> Horarios de Visita
+          {isEditing ? (
+            /* ── MODO EDICIÓN DIRECTO EN PANTALLA ── */
+            <div className="space-y-5">
+              <div className="rounded-2xl bg-amber-50 border-2 border-amber-300 p-3.5 text-xs text-amber-900 font-bold flex items-center justify-between">
+                <span>✏️ Estás editando este destino. Modifica lo que gustes y haz clic en "Guardar Cambios".</span>
+                <button
+                  type="button"
+                  onClick={handleSaveInline}
+                  className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 font-black cursor-pointer shadow-sm"
+                >
+                  💾 Guardar Ya
+                </button>
               </div>
-              <p className="text-[#78350F] font-medium leading-relaxed">
-                {schedule}
-              </p>
-            </div>
-            <div className="rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] p-4">
-              <div className="font-subtitle font-black text-[#15803D] uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                <Icon name="ticket" size={14} /> Precios / Ingreso
+
+              {/* Título & Metadatos editables */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-subtitle font-bold text-slate-700 mb-1">
+                    Título del Atractivo:
+                  </label>
+                  <input
+                    type="text"
+                    value={draftTitle}
+                    onChange={(e) => setDraftTitle(e.target.value)}
+                    className="w-full font-display text-xl font-black text-[#37474F] border-2 border-[#D81B60] rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#D81B60]/30"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-subtitle font-bold text-slate-700 mb-1">
+                      Zona / Ubicación:
+                    </label>
+                    <input
+                      type="text"
+                      value={draftArea}
+                      onChange={(e) => setDraftArea(e.target.value)}
+                      className="w-full text-xs font-bold border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-subtitle font-bold text-slate-700 mb-1">
+                      Puntuación (★):
+                    </label>
+                    <input
+                      type="text"
+                      value={draftRating}
+                      onChange={(e) => setDraftRating(e.target.value)}
+                      className="w-full text-xs font-bold border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-subtitle font-bold text-slate-700 mb-1">
+                      Duración estimada:
+                    </label>
+                    <input
+                      type="text"
+                      value={draftTime}
+                      onChange={(e) => setDraftTime(e.target.value)}
+                      className="w-full text-xs font-bold border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-subtitle font-bold text-slate-700 mb-1">
+                    Badges / Etiquetas (separadas por comas):
+                  </label>
+                  <input
+                    type="text"
+                    value={draftBadges}
+                    onChange={(e) => setDraftBadges(e.target.value)}
+                    placeholder="IMPERDIBLE, Destacado, Aventura..."
+                    className="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white"
+                  />
+                </div>
               </div>
-              <p className="text-[#14532D] font-medium leading-relaxed">
-                {priceEstimate}
-              </p>
-            </div>
-          </div>
 
-          {/* Insider Tip & Curious Fact */}
-          <div className="space-y-3">
-            <div className="rounded-2xl bg-[#FFF1F2] border border-[#FECDD3] p-4 text-xs">
-              <p className="font-subtitle font-bold text-[#BE123C] mb-1 flex items-center gap-1.5">
-                <span>💡</span> Consejo para Viajeros:
-              </p>
-              <p className="text-[#9F1239] leading-relaxed">
-                {insiderTip}
-              </p>
-            </div>
+              {/* ¿Qué ver y experimentar aquí? Editable */}
+              <div className="rounded-2xl bg-[#FAF7F2] border-2 border-[#E2D9CC] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-subtitle text-xs font-black text-[#37474F] uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="text-[#D81B60]">✦</span> ¿Qué ver y experimentar aquí? (Viñetas)
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setDraftHighlights([...draftHighlights, "Nueva experiencia..."])}
+                    className="rounded-lg bg-[#D81B60] text-white px-2.5 py-1 text-[11px] font-bold hover:bg-[#b0144c] cursor-pointer"
+                  >
+                    + Añadir Viñeta
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {draftHighlights.map((h, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-[#D81B60] font-black">✔</span>
+                      <input
+                        type="text"
+                        value={h}
+                        onChange={(e) => {
+                          const updated = [...draftHighlights];
+                          updated[i] = e.target.value;
+                          setDraftHighlights(updated);
+                        }}
+                        className="flex-1 text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white focus:border-[#D81B60] focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setDraftHighlights(draftHighlights.filter((_, idx) => idx !== i))}
+                        className="grid h-6 w-6 place-items-center rounded bg-rose-100 text-rose-700 hover:bg-rose-200 text-xs font-bold cursor-pointer"
+                        title="Eliminar esta viñeta"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-            <div className="rounded-2xl bg-[#EFF6FF] border border-[#BFDBFE] p-4 text-xs">
-              <p className="font-subtitle font-bold text-[#1D4ED8] mb-1 flex items-center gap-1.5">
-                <span>📜</span> Dato Histórico / Curioso:
-              </p>
-              <p className="text-[#1E40AF] leading-relaxed">
-                {curiousFact}
-              </p>
+              {/* Horarios & Precios Editables */}
+              <div className="grid sm:grid-cols-2 gap-3 text-xs">
+                <div className="rounded-2xl bg-[#FFFBEB] border-2 border-[#FDE68A] p-4 space-y-1.5">
+                  <label className="font-subtitle font-black text-[#B45309] uppercase tracking-wider block">
+                    📅 Horarios de Visita
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={draftSchedule}
+                    onChange={(e) => setDraftSchedule(e.target.value)}
+                    className="w-full text-xs border border-amber-300 rounded-lg p-2 bg-white text-[#78350F] focus:outline-none"
+                  />
+                </div>
+                <div className="rounded-2xl bg-[#F0FDF4] border-2 border-[#BBF7D0] p-4 space-y-1.5">
+                  <label className="font-subtitle font-black text-[#15803D] uppercase tracking-wider block">
+                    🎟️ Precios / Ingreso
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={draftPrecioDetalle}
+                    onChange={(e) => setDraftPrecioDetalle(e.target.value)}
+                    className="w-full text-xs border border-emerald-300 rounded-lg p-2 bg-white text-[#14532D] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Tip & Curious Fact Editables */}
+              <div className="space-y-3 text-xs">
+                <div className="rounded-2xl bg-[#FFF1F2] border-2 border-[#FECDD3] p-4 space-y-1.5">
+                  <label className="font-subtitle font-bold text-[#BE123C] block">
+                    💡 Consejo para Viajeros:
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={draftInsiderTip}
+                    onChange={(e) => setDraftInsiderTip(e.target.value)}
+                    className="w-full text-xs border border-rose-300 rounded-lg p-2 bg-white text-[#9F1239] focus:outline-none"
+                  />
+                </div>
+
+                <div className="rounded-2xl bg-[#EFF6FF] border-2 border-[#BFDBFE] p-4 space-y-1.5">
+                  <label className="font-subtitle font-bold text-[#1D4ED8] block">
+                    📜 Dato Histórico / Curioso:
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={draftCuriousFact}
+                    onChange={(e) => setDraftCuriousFact(e.target.value)}
+                    className="w-full text-xs border border-blue-300 rounded-lg p-2 bg-white text-[#1E40AF] focus:outline-none"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            /* ── MODO VISTA NORMAL ── */
+            <>
+              {/* Title & Metadata */}
+              <div>
+                <div className="flex items-center justify-between text-xs font-bold text-[#6D4C41] mb-1">
+                  <span className="flex items-center gap-1">
+                    <Icon name="pin" size={15} /> {place.area}
+                  </span>
+                  <span className="flex items-center gap-1 bg-[#FEF3C7] text-[#B45309] px-2.5 py-0.5 rounded-full border border-[#FDE68A]">
+                    ★ {place.rating} Excelente
+                  </span>
+                </div>
+                <h2 className="font-display text-2xl sm:text-3xl font-black text-[#37474F]">
+                  {place.title}
+                </h2>
+                <div className="mt-2 flex items-center gap-4 text-xs font-semibold text-[#6D4C41]">
+                  <span className="flex items-center gap-1">
+                    <Icon name="clock" size={15} /> Duración estimada: {place.time}
+                  </span>
+                  <span className="flex items-center gap-1 text-[#4CAF50] font-bold">
+                    ✓ Experiencia verificada
+                  </span>
+                </div>
+              </div>
+
+              {/* Qué ver y experimentar aquí */}
+              <div className="rounded-2xl bg-[#FAF7F2] border border-[#E2D9CC] p-4 sm:p-5">
+                <h3 className="font-subtitle text-sm font-black text-[#37474F] uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <span className="text-[#D81B60]">✦</span> ¿Qué ver y experimentar aquí?
+                </h3>
+                <ul className="space-y-2 text-xs sm:text-sm text-[#37474F]">
+                  {initialHighlights.map((h, i) => (
+                    <li key={i} className="flex items-start gap-2.5">
+                      <span className="text-[#D81B60] font-black mt-0.5">✔</span>
+                      <span className="leading-relaxed">{h}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Horarios & Precios */}
+              <div className="grid sm:grid-cols-2 gap-3 text-xs">
+                <div className="rounded-2xl bg-[#FFFBEB] border border-[#FDE68A] p-4">
+                  <div className="font-subtitle font-black text-[#B45309] uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                    <Icon name="calendar" size={14} /> Horarios de Visita
+                  </div>
+                  <p className="text-[#78350F] font-medium leading-relaxed">
+                    {initialSchedule}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] p-4">
+                  <div className="font-subtitle font-black text-[#15803D] uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                    <Icon name="ticket" size={14} /> Precios / Ingreso
+                  </div>
+                  <p className="text-[#14532D] font-medium leading-relaxed">
+                    {initialPriceEstimate}
+                  </p>
+                </div>
+              </div>
+
+              {/* Insider Tip & Curious Fact */}
+              <div className="space-y-3">
+                <div className="rounded-2xl bg-[#FFF1F2] border border-[#FECDD3] p-4 text-xs">
+                  <p className="font-subtitle font-bold text-[#BE123C] mb-1 flex items-center gap-1.5">
+                    <span>💡</span> Consejo para Viajeros:
+                  </p>
+                  <p className="text-[#9F1239] leading-relaxed">
+                    {initialInsiderTip}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-[#EFF6FF] border border-[#BFDBFE] p-4 text-xs">
+                  <p className="font-subtitle font-bold text-[#1D4ED8] mb-1 flex items-center gap-1.5">
+                    <span>📜</span> Dato Histórico / Curioso:
+                  </p>
+                  <p className="text-[#1E40AF] leading-relaxed">
+                    {initialCuriousFact}
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Modal Footer CTAs (Booking-Style) */}
         <div className="p-4 sm:p-5 border-t border-[#E8E3D8] bg-[#FAF7F2] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div>
             <span className="text-[11px] font-semibold text-[#6D4C41] block">Tarifa por persona</span>
-            <div className="flex items-baseline gap-2">
-              <span className="font-display text-2xl font-black text-[#D81B60]">{displayPriceBob}</span>
-              <span className="text-xs text-gray-500 font-medium">{displayPriceUsd}</span>
-            </div>
+            {isEditing ? (
+              <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-bold text-[#D81B60]">Bs.</span>
+                  <input
+                    type="number"
+                    step="any"
+                    value={draftPrecio}
+                    onChange={(e) => {
+                      setDraftPrecio(e.target.value);
+                      if (e.target.value) {
+                        setDraftPrecioUsd((parseFloat(e.target.value) / 6.96).toFixed(2));
+                      }
+                    }}
+                    className="w-20 rounded-lg border border-slate-300 p-1 text-sm font-bold bg-white text-[#D81B60]"
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-bold text-gray-500">$</span>
+                  <input
+                    type="number"
+                    step="any"
+                    value={draftPrecioUsd}
+                    onChange={(e) => setDraftPrecioUsd(e.target.value)}
+                    className="w-20 rounded-lg border border-slate-300 p-1 text-sm font-bold bg-white text-gray-600"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-baseline gap-2">
+                <span className="font-display text-2xl font-black text-[#D81B60]">{displayPriceBob}</span>
+                <span className="text-xs text-gray-500 font-medium">{displayPriceUsd}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto">
-            {isEffectiveAdmin && onEditPlace && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onEditPlace(place);
-                }}
-                className="flex-1 sm:flex-none rounded-xl border border-amber-500 bg-amber-100/80 hover:bg-amber-200 text-slate-900 px-4 py-3 font-subtitle text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-              >
-                <span>✏️ Editar Campos</span>
-              </button>
+            {isEditing ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="flex-1 sm:flex-none rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-4 py-3 font-subtitle text-xs font-bold transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveInline}
+                  className="flex-1 sm:flex-none rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 font-subtitle text-xs font-black shadow-lg shadow-emerald-600/30 transition hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>💾 Guardar Cambios</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="flex-1 sm:flex-none rounded-xl border-2 border-amber-500 bg-amber-400 hover:bg-amber-300 text-slate-900 px-4 py-3 font-subtitle text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:scale-105"
+                  title="Editar todos los campos de este destino directamente"
+                >
+                  <span>✏️ Editar Todo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onOpenZoomModal(place)}
+                  className="flex-1 sm:flex-none rounded-xl border border-[#D81B60] bg-white text-[#D81B60] hover:bg-[#FFF1F2] px-4 py-3 font-subtitle text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>🔍 Foto con Lupa</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenBookingPayment(place);
+                  }}
+                  className="flex-1 sm:flex-none rounded-xl bg-gradient-to-r from-[#D81B60] to-[#b0144c] hover:from-[#c21453] hover:to-[#96103f] text-white px-6 py-3 font-subtitle text-xs font-black shadow-lg shadow-[#D81B60]/30 transition hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>💳 Reservar y Pagar</span>
+                  <span>→</span>
+                </button>
+              </>
             )}
-
-            <button
-              type="button"
-              onClick={() => onOpenZoomModal(place)}
-              className="flex-1 sm:flex-none rounded-xl border border-[#D81B60] bg-white text-[#D81B60] hover:bg-[#FFF1F2] px-4 py-3 font-subtitle text-xs font-bold transition flex items-center justify-center gap-1.5"
-            >
-              <span>🔍 Ver Foto con Lupa</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onOpenBookingPayment(place);
-              }}
-              className="flex-1 sm:flex-none rounded-xl bg-gradient-to-r from-[#D81B60] to-[#b0144c] hover:from-[#c21453] hover:to-[#96103f] text-white px-6 py-3 font-subtitle text-xs font-black shadow-lg shadow-[#D81B60]/30 transition hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
-            >
-              <span>💳 Reservar y Pagar (Estilo Booking)</span>
-              <span>→</span>
-            </button>
           </div>
         </div>
       </div>
