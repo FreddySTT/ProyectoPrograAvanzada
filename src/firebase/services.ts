@@ -6,6 +6,9 @@
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInAnonymously,
+  GoogleAuthProvider,
+  signInWithPopup,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   type User as FirebaseUser,
@@ -23,8 +26,16 @@ import {
   deleteDoc,
   onSnapshot,
   serverTimestamp,
+  orderBy,
 } from "firebase/firestore";
-import { getFirebaseAuth, getFirebaseDb, isFirebaseConfigured } from "./config";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import {
+  getFirebaseAuth,
+  getFirebaseDb,
+  getFirebaseStorage,
+  isFirebaseConfigured,
+  trackFirebaseEvent,
+} from "./config";
 
 // ─── Tipos compatibles con el AuthContext existente ───────────────────────────
 export interface FirebaseLoginResult {
@@ -237,6 +248,74 @@ export function firebaseSubscribeToAnnouncement(
     }
   );
   return unsub;
+}
+
+// ─── Firebase Storage: Subida de Imágenes ────────────────────────────────────
+
+export async function firebaseUploadImage(file: File | Blob, path: string): Promise<string | null> {
+  const storage = getFirebaseStorage();
+  if (!storage) return null;
+  try {
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(storageRef);
+    trackFirebaseEvent("image_uploaded", { path });
+    return downloadUrl;
+  } catch (e) {
+    console.warn("[Firebase Storage] Error subiendo imagen:", e);
+    return null;
+  }
+}
+
+// ─── Firebase Firestore: Bookings / Reservas ──────────────────────────────────
+
+export async function firebaseSaveBooking(booking: any): Promise<boolean> {
+  const db = getFirebaseDb();
+  if (!db) return false;
+  try {
+    const bookingId = booking.id || `booking-${Date.now()}`;
+    await setDoc(doc(db, "bookings", bookingId), {
+      ...booking,
+      id: bookingId,
+      created_at: booking.createdAt || new Date().toISOString(),
+    }, { merge: true });
+    trackFirebaseEvent("booking_created", { bookingId, placeId: booking.placeId });
+    return true;
+  } catch (e) {
+    console.warn("[Firebase] Error guardando reserva:", e);
+    return false;
+  }
+}
+
+export async function firebaseGetBookings(): Promise<any[]> {
+  const db = getFirebaseDb();
+  if (!db) return [];
+  try {
+    const snap = await getDocs(collection(db, "bookings"));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.warn("[Firebase] Error obteniendo reservas:", e);
+    return [];
+  }
+}
+
+// ─── Firebase Auth: Login Anónimo (Invitado Oficial) ──────────────────────────
+
+export async function firebaseLoginAnonymous(): Promise<FirebaseLoginResult> {
+  const auth = getFirebaseAuth();
+  if (!auth) return { success: false, message: "Firebase Auth no inicializado" };
+  try {
+    const cred = await signInAnonymously(auth);
+    trackFirebaseEvent("login_anonymous", { uid: cred.user.uid });
+    return {
+      success: true,
+      message: "Sesión iniciada como Invitado Oficial en Firebase",
+      uid: cred.user.uid,
+      email: "invitado@riqsirutas.bo",
+    };
+  } catch (e: any) {
+    return { success: false, message: e.message || "Error al iniciar como invitado" };
+  }
 }
 
 // ─── Helper: mapear errores de Firebase Auth ──────────────────────────────────

@@ -5,6 +5,8 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
+import { getAnalytics, isSupported as isAnalyticsSupported, type Analytics, logEvent } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
@@ -13,6 +15,7 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-WDHDETLEDV",
 };
 
 export function isFirebaseConfigured(): boolean {
@@ -26,6 +29,8 @@ export function isFirebaseConfigured(): boolean {
 let firebaseApp: FirebaseApp | null = null;
 let firebaseAuth: Auth | null = null;
 let firebaseDb: Firestore | null = null;
+let firebaseStorage: FirebaseStorage | null = null;
+let firebaseAnalytics: Analytics | null = null;
 
 export function getFirebaseApp(): FirebaseApp | null {
   if (!isFirebaseConfigured()) return null;
@@ -67,5 +72,44 @@ export function getFirebaseDb(): Firestore | null {
     console.warn("[Firebase] No se pudo obtener Firestore:", e);
     return null;
   }
+}
+
+export function getFirebaseStorage(): FirebaseStorage | null {
+  if (firebaseStorage) return firebaseStorage;
+  const app = getFirebaseApp();
+  if (!app) return null;
+  try {
+    firebaseStorage = getStorage(app);
+    return firebaseStorage;
+  } catch (e) {
+    console.warn("[Firebase] No se pudo inicializar Storage:", e);
+    return null;
+  }
+}
+
+export async function getFirebaseAnalyticsInstance(): Promise<Analytics | null> {
+  if (firebaseAnalytics) return firebaseAnalytics;
+  const app = getFirebaseApp();
+  if (!app || typeof window === "undefined") return null;
+  try {
+    const supported = await isAnalyticsSupported();
+    if (supported) {
+      firebaseAnalytics = getAnalytics(app);
+      return firebaseAnalytics;
+    }
+    return null;
+  } catch (e) {
+    console.warn("[Firebase] Analytics no soportado en este entorno:", e);
+    return null;
+  }
+}
+
+export async function trackFirebaseEvent(eventName: string, params?: Record<string, any>) {
+  try {
+    const analytics = await getFirebaseAnalyticsInstance();
+    if (analytics) {
+      logEvent(analytics, eventName, params);
+    }
+  } catch {}
 }
 

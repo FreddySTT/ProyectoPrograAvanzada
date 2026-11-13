@@ -33,3 +33,7 @@ pnpm-debug.log*
 # Python cache (flask-crud)
 flask-crud/__pycache__/
 flask-crud/*.pyc
+
+# Firebase logs and cache
+firebase-debug.log*
+.firebase/

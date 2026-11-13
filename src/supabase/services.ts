@@ -32,14 +32,14 @@ export const DEFAULT_ANNOUNCEMENT: Announcement = {
 // ==========================================
 
 export async function fetchPlaces(): Promise<PlaceItem[]> {
-  // ── Modo Firebase ───────────────────────────────────────────────────────────
+  // ── Modo Exclusivo Firebase ────────────────────────────────────────────────
   if (BACKEND === "firebase") {
     const fbPlaces = await firebaseGetPlaces();
     if (fbPlaces && fbPlaces.length > 0) return fbPlaces as PlaceItem[];
     return INITIAL_PLACES;
   }
 
-  // ── Modo Supabase / local ───────────────────────────────────────────────────
+  // ── Modo Dual / Supabase ───────────────────────────────────────────────────
   const supabase = getSupabaseClient();
 
   if (isSupabaseConfigured() && supabase) {
@@ -82,11 +82,70 @@ export async function fetchPlaces(): Promise<PlaceItem[]> {
           datoHistorico: d.dato_historico || d.datoHistorico,
           badges: d.badges,
         }));
+        // Enriquecer con INITIAL_PLACES y LocalStorage para campos extendidos si Supabase no los tiene
+        const localCached = await secureGet<PlaceItem[]>(LOCAL_PLACES_KEY);
+        const localMap = new Map((localCached || []).map((p) => [p.id, p]));
+
+        for (const item of mapped) {
+          const loc = localMap.get(item.id);
+          const init = INITIAL_PLACES.find((p) => p.id === item.id);
+
+          if (item.precio === undefined) item.precio = loc?.precio ?? init?.precio;
+          if (item.precioUsd === undefined) item.precioUsd = loc?.precioUsd ?? init?.precioUsd;
+          if (!item.precioDetalle) item.precioDetalle = loc?.precioDetalle ?? init?.precioDetalle;
+          if (!item.horarioVisita) item.horarioVisita = loc?.horarioVisita ?? init?.horarioVisita;
+          if (!item.descripcionItems || item.descripcionItems.length === 0) {
+            item.descripcionItems = loc?.descripcionItems ?? init?.descripcionItems;
+          }
+          if (!item.consejo) item.consejo = loc?.consejo ?? init?.consejo;
+          if (!item.datoHistorico) item.datoHistorico = loc?.datoHistorico ?? init?.datoHistorico;
+          if (!item.badges || item.badges.length === 0) {
+            item.badges = loc?.badges ?? init?.badges;
+          }
+        }
+
+        // Si estamos en modo Dual, enriquecer con Firestore
+        if (BACKEND === "dual") {
+          try {
+            const fbPlaces = await firebaseGetPlaces();
+            if (fbPlaces && fbPlaces.length > 0) {
+              const fbMap = new Map((fbPlaces as any[]).map((f) => [f.id, f]));
+              for (const item of mapped) {
+                const fb = fbMap.get(item.id);
+                if (fb) {
+                  if (fb.precio !== undefined) item.precio = fb.precio;
+                  if (fb.precioUsd !== undefined) item.precioUsd = fb.precioUsd;
+                  if (fb.precioDetalle) item.precioDetalle = fb.precioDetalle;
+                  if (fb.horarioVisita) item.horarioVisita = fb.horarioVisita;
+                  if (fb.descripcionItems?.length) item.descripcionItems = fb.descripcionItems;
+                  if (fb.consejo) item.consejo = fb.consejo;
+                  if (fb.datoHistorico) item.datoHistorico = fb.datoHistorico;
+                  if (fb.badges?.length) item.badges = fb.badges;
+                }
+              }
+            }
+          } catch {}
+        }
+
         await saveLocalPlaces(mapped);
+
         return mapped;
       }
     } catch (e) {
-      console.warn("Fallo al consultar Supabase places, usando fallback local:", e);
+      console.warn("Fallo al consultar Supabase places:", e);
+    }
+  }
+
+  // Si Supabase falló o estamos en Dual, intentar recuperar desde Firestore
+  if (BACKEND === "dual") {
+    try {
+      const fbPlaces = await firebaseGetPlaces();
+      if (fbPlaces && fbPlaces.length > 0) {
+        await saveLocalPlaces(fbPlaces as PlaceItem[]);
+        return fbPlaces as PlaceItem[];
+      }
+    } catch (e) {
+      console.warn("Fallback Firestore no disponible:", e);
     }
   }
 
@@ -133,12 +192,7 @@ export async function saveLocalPlaces(places: PlaceItem[]): Promise<void> {
 }
 
 export async function savePlace(place: PlaceItem): Promise<boolean> {
-  // ── Modo Firebase ───────────────────────────────────────────────────────────
-  if (BACKEND === "firebase") {
-    return await firebaseSavePlace(place);
-  }
-
-  // ── Modo Supabase / local ───────────────────────────────────────────────────
+  // 1. Guardado local inmediato para reactividad y persistencia offline
   const local = await getLocalPlaces();
   const exists = local.some((p) => p.id === place.id);
   const updated = exists
@@ -146,65 +200,90 @@ export async function savePlace(place: PlaceItem): Promise<boolean> {
     : [place, ...local];
   await saveLocalPlaces(updated);
 
-  const supabase = getSupabaseClient();
-  if (isSupabaseConfigured() && supabase) {
-    try {
-      const dbPayload = {
-        id: place.id,
-        title: place.title,
-        area: place.area,
-        tag: place.tag,
-        category: place.category,
-        image: place.image,
-        rating: place.rating,
-        time: place.time,
-        featured: place.featured ?? false,
-        visible: place.visible ?? true,
-        precio: place.precio,
-        precio_usd: place.precioUsd,
-        precio_detalle: place.precioDetalle,
-        horario_visita: place.horarioVisita,
-        descripcion_items: place.descripcionItems,
-        consejo: place.consejo,
-        dato_historico: place.datoHistorico,
-        badges: place.badges,
-        coordinates: place.coordinates,
-        created_at: place.createdAt || new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      const { error } = await supabase.from("places").upsert(dbPayload);
-      // Si la columna `coordinates` no existe aún en la tabla, reintentar sin ella
-      // para no romper el guardado del resto de campos.
-      if (error) {
-        const { coordinates: _coords, ...rest } = dbPayload;
-        await supabase.from("places").upsert(rest);
+  // 2. Replicación a Firebase Cloud Firestore (en modo Dual o Firebase)
+  if (BACKEND === "dual" || BACKEND === "firebase") {
+    firebaseSavePlace(place).catch((err) => console.warn("[DualSync] Replicación Firestore:", err));
+  }
+
+  // 3. Replicación a Supabase Cloud PostgreSQL (en modo Dual o Supabase)
+  if (BACKEND === "dual" || BACKEND === "supabase") {
+    const supabase = getSupabaseClient();
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const basePayload = {
+          id: place.id,
+          title: place.title,
+          area: place.area,
+          tag: place.tag,
+          category: place.category,
+          image: place.image,
+          rating: place.rating,
+          time: place.time,
+          featured: place.featured ?? false,
+          visible: place.visible ?? true,
+          updated_at: new Date().toISOString(),
+        };
+        const dbPayload = {
+          ...basePayload,
+          precio: place.precio,
+          precio_usd: place.precioUsd,
+          precio_detalle: place.precioDetalle,
+          horario_visita: place.horarioVisita,
+          descripcion_items: place.descripcionItems,
+          consejo: place.consejo,
+          dato_historico: place.datoHistorico,
+          badges: place.badges,
+          coordinates: place.coordinates,
+          created_at: place.createdAt || new Date().toISOString(),
+        };
+        const { error } = await supabase.from("places").upsert(dbPayload);
+        if (error) {
+          await supabase.from("places").upsert(basePayload);
+        }
+      } catch (e) {
+        console.warn("[DualSync] Error upserting to Supabase:", e);
       }
-    } catch (e) {
-      console.warn("Error upserting place to Supabase:", e);
     }
   }
+
+  // 4. Replicación a Flask Backend en localhost:5551
+  try {
+    fetch(`http://localhost:5551/api/places/${place.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(place),
+    }).catch(() => {});
+  } catch {}
 
   return true;
 }
 
 export async function deletePlace(id: string): Promise<boolean> {
-  // ── Modo Firebase ───────────────────────────────────────────────────────────
-  if (BACKEND === "firebase") {
-    return await firebaseDeletePlace(id);
-  }
-
-  // ── Modo Supabase / local ───────────────────────────────────────────────────
+  // 1. Eliminación local
   const local = (await getLocalPlaces()).filter((p) => p.id !== id);
   await saveLocalPlaces(local);
 
-  const supabase = getSupabaseClient();
-  if (isSupabaseConfigured() && supabase) {
-    try {
-      await supabase.from("places").delete().eq("id", id);
-    } catch (e) {
-      console.warn("Error deleting place from Supabase:", e);
+  // 2. Eliminación en Firebase Firestore
+  if (BACKEND === "dual" || BACKEND === "firebase") {
+    firebaseDeletePlace(id).catch(() => {});
+  }
+
+  // 3. Eliminación en Supabase
+  if (BACKEND === "dual" || BACKEND === "supabase") {
+    const supabase = getSupabaseClient();
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase.from("places").delete().eq("id", id);
+      } catch (e) {
+        console.warn("[DualSync] Error eliminando en Supabase:", e);
+      }
     }
   }
+
+  // 4. Eliminación en Flask
+  try {
+    fetch(`http://localhost:5551/api/places/${id}`, { method: "DELETE" }).catch(() => {});
+  } catch {}
 
   return true;
 }
@@ -221,7 +300,7 @@ export async function fetchAnnouncements(): Promise<Announcement> {
     return DEFAULT_ANNOUNCEMENT;
   }
 
-  // ── Modo Supabase / local ───────────────────────────────────────────────────
+  // ── Modo Supabase / Dual ───────────────────────────────────────────────────
   const supabase = getSupabaseClient();
 
   if (isSupabaseConfigured() && supabase) {
@@ -249,6 +328,12 @@ export async function fetchAnnouncements(): Promise<Announcement> {
     }
   }
 
+  // En modo Dual, fallback a Firestore
+  if (BACKEND === "dual") {
+    const fbAnn = await firebaseGetAnnouncement();
+    if (fbAnn) return fbAnn as Announcement;
+  }
+
   return getLocalAnnouncement();
 }
 
@@ -262,28 +347,31 @@ export async function saveLocalAnnouncement(ann: Announcement): Promise<void> {
 }
 
 export async function updateAnnouncements(ann: Announcement): Promise<boolean> {
-  // ── Modo Firebase ───────────────────────────────────────────────────────────
-  if (BACKEND === "firebase") {
-    return await firebaseSaveAnnouncement(ann);
-  }
-
-  // ── Modo Supabase / local ───────────────────────────────────────────────────
+  // 1. Local
   await saveLocalAnnouncement(ann);
 
-  const supabase = getSupabaseClient();
-  if (isSupabaseConfigured() && supabase) {
-    try {
-      await supabase.from("announcements").upsert({
-        id: "global-banner-1",
-        active: ann.active,
-        badge: ann.badge,
-        message: ann.message,
-        link_text: ann.linkText || "",
-        link_url: ann.linkUrl || "",
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Error saving announcement to Supabase:", e);
+  // 2. Firebase
+  if (BACKEND === "dual" || BACKEND === "firebase") {
+    firebaseSaveAnnouncement(ann).catch(() => {});
+  }
+
+  // 3. Supabase
+  if (BACKEND === "dual" || BACKEND === "supabase") {
+    const supabase = getSupabaseClient();
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase.from("announcements").upsert({
+          id: "global-banner-1",
+          active: ann.active,
+          badge: ann.badge,
+          message: ann.message,
+          link_text: ann.linkText || "",
+          link_url: ann.linkUrl || "",
+          updated_at: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.warn("Error saving announcement to Supabase:", e);
+      }
     }
   }
 
@@ -644,3 +732,97 @@ export function subscribeToAnnouncement(callback: (ann: Announcement) => void): 
 
   return () => clearInterval(interval);
 }
+
+// ==========================================
+// 6. DUAL BOOKING & STORAGE INTEGRATION
+// ==========================================
+
+export async function saveBookingDual(booking: {
+  id?: string;
+  placeId: string;
+  placeTitle: string;
+  clientName: string;
+  clientEmail: string;
+  clientPhone?: string;
+  date: string;
+  tickets: number;
+  totalBs: number;
+  totalUsd: number;
+  status?: string;
+}): Promise<boolean> {
+  const finalId = booking.id || `booking-${Date.now()}`;
+  const record = {
+    ...booking,
+    id: finalId,
+    status: booking.status || "confirmed",
+    created_at: new Date().toISOString(),
+  };
+
+  // 1. Local Storage
+  const LOCAL_BOOKINGS_KEY = "riqsi_bookings_v2";
+  const existing = (await secureGet<any[]>(LOCAL_BOOKINGS_KEY)) || [];
+  await secureSet(LOCAL_BOOKINGS_KEY, [record, ...existing]);
+
+  // 2. Firebase Cloud Firestore
+  try {
+    const { firebaseSaveBooking } = await import("../firebase/services");
+    await firebaseSaveBooking(record);
+  } catch (e) {
+    console.warn("[DualSync] Error guardando reserva en Firebase:", e);
+  }
+
+  // 3. Supabase Cloud DB
+  const supabase = getSupabaseClient();
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from("bookings").upsert({
+        id: record.id,
+        place_id: record.placeId,
+        place_title: record.placeTitle,
+        client_name: record.clientName,
+        client_email: record.clientEmail,
+        client_phone: record.clientPhone,
+        date: record.date,
+        tickets: record.tickets,
+        total_bs: record.totalBs,
+        total_usd: record.totalUsd,
+        status: record.status,
+        created_at: record.created_at,
+      });
+    } catch (e) {
+      console.warn("[DualSync] Error guardando reserva en Supabase:", e);
+    }
+  }
+
+  return true;
+}
+
+export async function uploadPlaceImageDual(file: File, filename?: string): Promise<string | null> {
+  const path = `places/${Date.now()}_${filename || file.name}`;
+  
+  // 1. Intentar Firebase Storage
+  try {
+    const { firebaseUploadImage } = await import("../firebase/services");
+    const fbUrl = await firebaseUploadImage(file, path);
+    if (fbUrl) return fbUrl;
+  } catch (e) {
+    console.warn("[Storage] Fallback Firebase Storage:", e);
+  }
+
+  // 2. Intentar Supabase Storage
+  const supabase = getSupabaseClient();
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase.storage.from("places").upload(path, file);
+      if (!error && data) {
+        const { data: publicUrlData } = supabase.storage.from("places").getPublicUrl(path);
+        return publicUrlData.publicUrl;
+      }
+    } catch (e) {
+      console.warn("[Storage] Error Supabase Storage:", e);
+    }
+  }
+
+  return null;
+}
+
