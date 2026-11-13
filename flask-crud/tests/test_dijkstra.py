@@ -38,3 +38,4 @@ def test_endpoint_dijkstra_api(client):
     data = resp.get_json()
     assert data["ok"] is True
     assert data["distancia_total_km"] == 1.2
+

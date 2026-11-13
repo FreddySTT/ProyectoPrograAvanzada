@@ -60,3 +60,4 @@ def listar_reservas():
         "total": len(payment_service.reservas_memoria),
         "data": payment_service.reservas_memoria,
     })
+

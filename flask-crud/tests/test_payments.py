@@ -66,3 +66,4 @@ def test_checkout_validacion_pydantic_error(client):
     data = resp.get_json()
     assert data["title"] == "Unprocessable Entity"
     assert "invalid_params" in data
+

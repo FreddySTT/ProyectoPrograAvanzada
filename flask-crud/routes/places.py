@@ -120,3 +120,4 @@ def eliminar_destino(place_id):
         "mensaje": f"Destino '{place_id}' eliminado",
         "supabase_eliminado": sb_ok,
     })
+

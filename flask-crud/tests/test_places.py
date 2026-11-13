@@ -34,3 +34,4 @@ def test_lugar_no_encontrado(client):
     assert resp.status_code == 404
     data = resp.get_json()
     assert data["title"] == "Not Found"
+

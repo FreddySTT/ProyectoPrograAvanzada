@@ -1,0 +1,45 @@
+{
+  "name": "Riqsi Rutas — Cochabamba",
+  "short_name": "RiqsiRutas",
+  "description": "Descubre rutas turísticas en Cochabamba con navegación offline y pagos seguros.",
+  "theme_color": "#D81B60",
+  "background_color": "#1a0a00",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "start_url": "/",
+  "scope": "/",
+  "lang": "es-BO",
+  "categories": ["travel", "lifestyle"],
+  "icons": [
+    {
+      "src": "/gato-explorador.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/gato-explorador.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Ver Lugares",
+      "short_name": "Lugares",
+      "description": "Explorar lugares turísticos de Cochabamba",
+      "url": "/?section=places",
+      "icons": [{ "src": "/gato-explorador.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Calcular Ruta",
+      "short_name": "Rutas",
+      "description": "Encontrar la ruta óptima con Dijkstra",
+      "url": "/?section=routes",
+      "icons": [{ "src": "/gato-explorador.png", "sizes": "192x192" }]
+    }
+  ]
+}
+

@@ -1,0 +1,60 @@
+name: CI — Backend & Frontend Testing Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  backend-tests:
+    name: 🐍 Flask Backend Pytest Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r flask-crud/requirements.txt
+
+      - name: Run Pytest Suite
+        env:
+          FLASK_ENV: testing
+          JWT_SECRET_KEY: test-secret-key-12345
+        run: |
+          python -m pytest flask-crud/tests -v --tb=short
+
+  frontend-tests:
+    name: ⚛️ Frontend Vitest Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Node Dependencies
+        run: npm ci || npm install
+
+      - name: Run Vitest Unit Tests
+        run: npm run test
+
+      - name: Verify Production Build
+        env:
+          VITE_BASE_PATH: /
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://mgkxnplbcdxfuxdlcyzl.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'dummy_anon_key_for_ci' }}
+        run: npm run build

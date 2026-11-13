@@ -45,3 +45,4 @@ def register_error_handlers(app):
     @app.errorhandler(500)
     def internal_server_error(e):
         return make_problem_response(500, "Internal Server Error", "Ha ocurrido un error inesperado en el servidor.")
+

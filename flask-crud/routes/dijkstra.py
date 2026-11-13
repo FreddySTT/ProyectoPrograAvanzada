@@ -36,3 +36,4 @@ def calcular_ruta():
         )
 
     return jsonify(resultado)
+

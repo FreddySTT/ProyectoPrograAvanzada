@@ -87,3 +87,4 @@ def eliminar_usuario(user_id):
         "ok": True,
         "mensaje": f"Usuario '{user_id}' eliminado correctamente",
     })
+

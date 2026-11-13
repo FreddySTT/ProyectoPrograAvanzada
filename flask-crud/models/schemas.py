@@ -62,3 +62,4 @@ class CheckoutSchema(BaseModel):
     incluir_transporte: Optional[bool] = False
     incluir_almuerzo: Optional[bool] = False
     cupon_descuento: Optional[str] = None
+

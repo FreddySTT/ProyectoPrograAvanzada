@@ -50,3 +50,4 @@ def health():
         "usuarios_en_memoria": gestor.cantidad(),
         "reservas_procesadas": len(payment_service.reservas_memoria),
     })
+

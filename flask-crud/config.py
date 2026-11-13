@@ -30,3 +30,4 @@ def get_config():
     elif env == "testing":
         return TestingConfig
     return DevelopmentConfig
+

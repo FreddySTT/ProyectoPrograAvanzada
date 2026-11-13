@@ -24,3 +24,18 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <App />
   </React.StrictMode>,
 )
+
+// REGISTRO DE SERVICE WORKER PWA (Offline & Cache)
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((reg) => {
+        console.log('✅ ServiceWorker PWA registrado con éxito:', reg.scope);
+      })
+      .catch((err) => {
+        console.warn('⚠️ Error al registrar ServiceWorker PWA:', err);
+      });
+  });
+}
+

@@ -67,3 +67,4 @@ def test_token_expirado_unauthorized(client):
     data = resp.get_json()
     assert data["title"] == "Unauthorized"
     assert "ha expirado" in data["detail"]
+

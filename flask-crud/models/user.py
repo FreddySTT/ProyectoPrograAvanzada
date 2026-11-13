@@ -83,3 +83,4 @@ class GestorUsuarios:
             del self._usuarios[user_id]
             return True
         return False
+
