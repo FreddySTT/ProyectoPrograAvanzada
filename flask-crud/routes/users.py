@@ -7,6 +7,7 @@ from models.user import Usuario
 from models.schemas import UserCreateSchema, UserUpdateSchema
 from core.auth import require_role
 from core.errors import make_problem_response
+from core.limiter import rate_limit
 
 users_bp = Blueprint("users_bp", __name__, url_prefix="/api/users")
 
@@ -28,6 +29,7 @@ def obtener_usuario(user_id):
     return jsonify({"ok": True, "data": usuario.to_dict()})
 
 @users_bp.route("", methods=["POST"])
+@rate_limit(requests_per_minute=20)
 def crear_usuario():
     raw_data = request.get_json(silent=True) or {}
     try:

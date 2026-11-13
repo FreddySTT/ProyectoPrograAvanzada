@@ -23,6 +23,20 @@ services:
   # ----------------------------------------------------------------------------
   # 1. Backend API (Flask + Gunicorn + POO + Supabase Bridge + Dijkstra)
   # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: riqsi-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - riqsi-net
+
   backend:
     build:
       context: ./flask-crud
@@ -36,8 +50,12 @@ services:
     environment:
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_KEY=${SUPABASE_KEY:-}
+      - REDIS_URL=redis://redis:6379/0
       - FLASK_ENV=production
       - PORT=5000
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 15s

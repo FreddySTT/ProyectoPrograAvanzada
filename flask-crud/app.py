@@ -22,9 +22,25 @@ from routes.users import users_bp
 from routes.places import places_bp
 from routes.dijkstra import dijkstra_bp
 from routes.payments import payments_bp
+from routes.docs import docs_bp
 
 def create_app(config_class=None):
     """Fábrica de Aplicaciones (Application Factory Pattern)."""
+    # 0. Sentry Observability (opcional si SENTRY_DSN está configurado)
+    sentry_dsn = os.environ.get("SENTRY_DSN")
+    if sentry_dsn:
+        try:
+            import sentry_sdk
+            from sentry_sdk.integrations.flask import FlaskIntegration
+            sentry_sdk.init(
+                dsn=sentry_dsn,
+                integrations=[FlaskIntegration()],
+                traces_sample_rate=0.2,
+                profiles_sample_rate=0.1,
+            )
+        except Exception as e:
+            print(f"⚠️ Sentry no pudo inicializarse: {e}")
+
     app = Flask(__name__)
 
     if config_class is None:
@@ -57,14 +73,17 @@ def create_app(config_class=None):
     app.register_blueprint(places_bp)
     app.register_blueprint(dijkstra_bp)
     app.register_blueprint(payments_bp)
+    app.register_blueprint(docs_bp)
 
-    # 5. Cabeceras de Seguridad HTTP
+    # 5. Cabeceras de Seguridad HTTP Enterprise
     @app.after_request
     def set_security_headers(response):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(self)"
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
         return response
 
     return app

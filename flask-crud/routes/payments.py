@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request, current_app
 from pydantic import ValidationError
 from models.schemas import CheckoutSchema
 from core.errors import make_problem_response
+from core.limiter import rate_limit
 
 payments_bp = Blueprint("payments_bp", __name__, url_prefix="/api/payments")
 
@@ -26,6 +27,7 @@ def cotizar_tarifa():
     return jsonify({"ok": True, "tarifa": desglose})
 
 @payments_bp.route("/checkout", methods=["POST"])
+@rate_limit(requests_per_minute=30)
 def checkout_pago():
     """
     Procesa el pago con validación Pydantic, cálculo en servidor y soporte de Idempotencia.
