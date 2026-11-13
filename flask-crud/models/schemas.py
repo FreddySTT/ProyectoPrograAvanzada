@@ -34,6 +34,7 @@ class PlaceSchema(BaseModel):
     dato_historico: Optional[str] = None
     badges: Optional[List[str]] = None
     coordinates: Optional[List[float]] = None
+    version: Optional[int] = Field(1, ge=1, description="Número de versión para control de concurrencia optimista")
 
     @field_validator("coordinates")
     @classmethod

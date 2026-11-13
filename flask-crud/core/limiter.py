@@ -84,3 +84,4 @@ def rate_limit(requests_per_minute: int = 60, key_func=None):
             return fn(*args, **kwargs)
         return wrapper
     return decorator
+

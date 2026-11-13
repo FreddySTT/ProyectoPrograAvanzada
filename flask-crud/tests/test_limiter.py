@@ -18,3 +18,4 @@ def test_rate_limiter_exceeded(client):
 
     # Las primeras 20 deben ser 422 (ValidationError), y a partir de la 21 debe ser 429
     assert 429 in statuses
+

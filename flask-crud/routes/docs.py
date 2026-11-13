@@ -213,3 +213,4 @@ def get_openapi_spec():
 def get_swagger_ui():
     """Renderiza la interfaz interactiva Swagger UI."""
     return render_template_string(SWAGGER_UI_HTML)
+

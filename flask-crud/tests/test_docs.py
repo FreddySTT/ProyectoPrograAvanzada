@@ -21,3 +21,4 @@ def test_swagger_ui_html(client):
     html = response.get_data(as_text=True)
     assert "swagger-ui" in html
     assert "SwaggerUIBundle" in html
+

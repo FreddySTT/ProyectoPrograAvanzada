@@ -2,6 +2,7 @@
 Blueprint para CRUD de Atractivos Turísticos (Validación Pydantic + Edición Completa + Fallback Dual).
 """
 import uuid
+import math
 from datetime import datetime
 from flask import Blueprint, jsonify, request, current_app
 from pydantic import ValidationError
@@ -29,18 +30,78 @@ def normalizar_payload_lugar(data: dict) -> dict:
         norm["precio"] = norm.pop("price")
     return norm
 
+def filtrar_y_paginar_lugares(items: list[dict], args: dict) -> dict:
+    """Aplica búsqueda de texto completo, filtro de categoría y paginación."""
+    resultado = list(items)
+
+    # 1. Búsqueda de texto completo
+    q = (args.get("q") or args.get("search") or "").strip().lower()
+    if q:
+        def match_search(item: dict) -> bool:
+            campos_texto = [
+                str(item.get("title") or ""),
+                str(item.get("area") or ""),
+                str(item.get("tag") or ""),
+                str(item.get("category") or ""),
+                str(item.get("dato_historico") or ""),
+                str(item.get("consejo") or ""),
+            ]
+            for desc in item.get("descripcion_items") or []:
+                campos_texto.append(str(desc))
+            return any(q in campo.lower() for campo in campos_texto)
+        resultado = [p for p in resultado if match_search(p)]
+
+    # 2. Filtro por categoría
+    categoria = (args.get("category") or args.get("categoria") or "").strip().lower()
+    if categoria and categoria != "todas":
+        resultado = [p for p in resultado if str(p.get("category", "")).lower() == categoria]
+
+    # 3. Paginación
+    total = len(resultado)
+    page_str = args.get("page")
+    limit_str = args.get("limit")
+
+    # Si no se solicitan explícitamente page o limit, devolver todos para retrocompatibilidad
+    if not page_str and not limit_str:
+        return {
+            "total": total,
+            "data": resultado,
+            "paginated": False
+        }
+
+    page = max(int(page_str or 1), 1)
+    limit = max(min(int(limit_str or 10), 100), 1)
+    total_pages = max(math.ceil(total / limit), 1)
+
+    inicio = (page - 1) * limit
+    fin = inicio + limit
+    paginados = resultado[inicio:fin]
+
+    return {
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "total_pages": total_pages,
+        "has_next": page < total_pages,
+        "has_prev": page > 1,
+        "data": paginados,
+        "paginated": True
+    }
+
 @places_bp.route("", methods=["GET"])
 def obtener_destinos():
     supabase_bridge = current_app.extensions["supabase_bridge"]
     lugares_supabase = supabase_bridge.fetch_places()
-    if lugares_supabase is not None and len(lugares_supabase) > 0:
-        return jsonify({"ok": True, "source": "supabase", "data": lugares_supabase})
+
+    base_items = lugares_supabase if (lugares_supabase is not None and len(lugares_supabase) > 0) else list(PLACES_FALLBACK.values())
+    source = "supabase" if (lugares_supabase is not None and len(lugares_supabase) > 0) else "backend-memory"
+
+    filtro = filtrar_y_paginar_lugares(base_items, request.args)
 
     return jsonify({
         "ok": True,
-        "source": "backend-memory",
-        "data": list(PLACES_FALLBACK.values()),
-        "mensaje": "Lugares cargados con todos los campos editables.",
+        "source": source,
+        **filtro
     })
 
 @places_bp.route("/<place_id>", methods=["GET"])
@@ -93,18 +154,33 @@ def actualizar_destino(place_id):
     except ValidationError as err:
         return make_problem_response(422, "Unprocessable Entity", "Fallo de validación de campos del atractivo", err.errors())
 
-    actual = PLACES_FALLBACK.get(place_id, {"id": place_id})
+    actual = PLACES_FALLBACK.get(place_id, {"id": place_id, "version": 1})
+    current_version = int(actual.get("version") or 1)
+
+    # Control de Concurrencia Optimista (OCC)
+    client_version = norm.get("version")
+    if client_version is not None and int(client_version) < current_version:
+        return make_problem_response(
+            409,
+            "Conflict",
+            f"Conflicto de concurrencia optimista: el atractivo '{place_id}' fue modificado por otro usuario (versión actual: {current_version}, versión recibida: {client_version}). Recarga la página para sincronizar."
+        )
+
+    # Incrementar versión para el siguiente cambio
+    nueva_version = current_version + 1
     actual.update(norm)
+    actual["version"] = nueva_version
     actual["updated_at"] = datetime.utcnow().isoformat() + "Z"
     PLACES_FALLBACK[place_id] = actual
 
     supabase_bridge = current_app.extensions["supabase_bridge"]
-    resp_sb = supabase_bridge.update_place(place_id, norm)
+    resp_sb = supabase_bridge.update_place(place_id, actual)
 
     return jsonify({
         "ok": True,
         "mensaje": f"Destino '{place_id}' actualizado con éxito",
         "data": resp_sb or actual,
+        "version": nueva_version,
         "campos_actualizados": list(norm.keys()),
     }), 200
 
