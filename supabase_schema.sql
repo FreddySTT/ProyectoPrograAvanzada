@@ -128,3 +128,27 @@ VALUES (
     '👑',
     NOW()
 ) ON CONFLICT (id) DO NOTHING;
+
+-- =============================================================================
+-- COORDENADAS PARA EL MAPA INTERACTIVO (Mapbox)
+-- La app funciona SIN esta columna (hace fallback a las coords de initialData),
+-- pero ejecútala en el SQL Editor de Supabase para persistirlas en la nube.
+-- Formato esperado: JSONB [lng, lat]  ej: [-66.13495, -17.38431]
+-- =============================================================================
+ALTER TABLE public.places
+    ADD COLUMN IF NOT EXISTS coordinates JSONB;
+
+-- Seed de coordenadas para los 13 lugares base (opcional, idempotente por id)
+UPDATE public.places SET coordinates = '[-66.13495, -17.38431]'::jsonb WHERE id = 'place-1';        -- Cristo de la Concordia
+UPDATE public.places SET coordinates = '[-66.15339, -17.37492]'::jsonb WHERE id = 'place-2';        -- Palacio Portales
+UPDATE public.places SET coordinates = '[-66.32079, -17.23008]'::jsonb WHERE id = 'place-3';        -- Parque Nacional Tunari
+UPDATE public.places SET coordinates = '[-66.15197, -17.40060]'::jsonb WHERE id = 'place-4';        -- Mercado La Cancha
+UPDATE public.places SET coordinates = '[-66.2160, -17.3100]'::jsonb   WHERE id = 'place-5';        -- Valle de las Animas
+UPDATE public.places SET coordinates = '[-66.1550, -17.3870]'::jsonb   WHERE id = 'place-6';        -- Ruta del Silpancho
+UPDATE public.places SET coordinates = '[-66.1568, -17.3935]'::jsonb   WHERE id = 'place-7';        -- Danzas y Tradicion Viva
+UPDATE public.places SET coordinates = '[-66.1533, -17.4022]'::jsonb   WHERE id = 'place-8';        -- Travesia en Bici
+UPDATE public.places SET coordinates = '[-66.2158, -17.3328]'::jsonb   WHERE id = 'place-9';        -- Bosques y Senderos
+UPDATE public.places SET coordinates = '[-66.1511, -17.3776]'::jsonb   WHERE id = 'place-gastro-1'; -- Casa de Campo
+UPDATE public.places SET coordinates = '[-66.1825, -17.3917]'::jsonb   WHERE id = 'place-gastro-2'; -- Punto de Encuentro
+UPDATE public.places SET coordinates = '[-66.1530, -17.3738]'::jsonb   WHERE id = 'place-gastro-3'; -- La Chanchada
+UPDATE public.places SET coordinates = '[-66.1515, -17.3735]'::jsonb   WHERE id = 'place-gastro-4'; -- Casona del Molino

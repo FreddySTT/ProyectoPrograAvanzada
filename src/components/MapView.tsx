@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import type { PlaceItem } from "../types/auth";
+import { MAPBOX_TOKEN } from "../config/mapbox";
 
 type FilterType = "todos" | "gastronomia" | "cultura" | "naturaleza" | "aventura";
 type TravelMode = "driving" | "walking";
@@ -12,19 +13,66 @@ interface MapViewProps {
   initialPlace?: PlaceItem | null;
 }
 
-// Cochabamba Coordinates: Plaza 14 de Septiembre [lat, lng]
-const DEFAULT_COCHABAMBA_LATLNG: [number, number] = [-17.3935, -66.1568];
+interface UserLocation {
+  lng: number;
+  lat: number;
+}
 
-const filterButtons: { key: FilterType; label: string; color: string; icon: string }[] = [
-  { key: "todos", label: "Todos", color: "#0F172A", icon: "🗺️" },
-  { key: "gastronomia", label: "Gastronomía", color: "#BE123C", icon: "🍽️" },
-  { key: "cultura", label: "Cultura", color: "#7C3AED", icon: "🎭" },
-  { key: "naturaleza", label: "Naturaleza", color: "#059669", icon: "🌿" },
-  { key: "aventura", label: "Aventura", color: "#0284C7", icon: "🧗" },
+// Cochabamba Coordinates: Plaza 14 de Septiembre [lng, lat]
+const DEFAULT_COCHABAMBA: [number, number] = [-66.1568, -17.3935];
+
+mapboxgl.accessToken = MAPBOX_TOKEN;
+
+const filterButtons: { key: FilterType; label: string; color: string }[] = [
+  { key: "todos", label: "Todos", color: "#0F172A" },
+  { key: "gastronomia", label: "Gastronomía", color: "#BE123C" },
+  { key: "cultura", label: "Cultura", color: "#7C3AED" },
+  { key: "naturaleza", label: "Naturaleza", color: "#059669" },
+  { key: "aventura", label: "Aventura", color: "#0284C7" },
 ];
 
-function calculateDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371; // Earth radius in km
+// SVG icons (stroke currentColor) — same paths as the project's Icon component
+const CATEGORY_ICON_SVG: Record<string, string> = {
+  gastronomia:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/><path d="M15 2v20"/><path d="M6 2v20"/><path d="M6 6h4"/></svg>',
+  cultura:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="m12 2.7 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.3l6.2-.9L12 2.7Z"/></svg>',
+  naturaleza:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="m8 3 4 8 5-5 5 11H2L8 3z"/></svg>',
+  aventura:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/><path d="M7 19h3a3 3 0 0 0 3-3V8a3 3 0 0 1 3-3h1"/></svg>',
+  default:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+};
+
+const categoryIconSvg = (category: string) =>
+  CATEGORY_ICON_SVG[category] ?? CATEGORY_ICON_SVG.default;
+
+// ─── Voice guidance (Web Speech API, Spanish) ──────────────────────────────
+const speakEs = (text: string) => {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  const synth = window.speechSynthesis;
+  // No cancel(): utterances queue so the greeting finishes before instructions
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "es-BO";
+  utterance.rate = 1;
+  // Pick a Spanish voice when available (voices load async — getVoices() warms the list)
+  const voices = synth.getVoices();
+  const esVoice =
+    voices.find((v) => v.lang.toLowerCase().startsWith("es")) ??
+    voices.find((v) => v.lang.toLowerCase().includes("es"));
+  if (esVoice) utterance.voice = esVoice;
+  synth.speak(utterance);
+};
+
+const stopSpeaking = () => {
+  if (typeof window !== "undefined" && "speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+};
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
@@ -33,20 +81,52 @@ function calculateDistanceKm(lat1: number, lng1: number, lat2: number, lng2: num
       Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLng / 2) *
       Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c * 10) / 10;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 10) / 10;
 }
 
+const getCategoryTheme = (category: string) => {
+  switch (category) {
+    case "gastronomia":
+      return { color: "#BE123C", label: "Gastronomía" };
+    case "cultura":
+      return { color: "#7C3AED", label: "Cultura" };
+    case "naturaleza":
+      return { color: "#059669", label: "Naturaleza" };
+    case "aventura":
+      return { color: "#0284C7", label: "Aventura" };
+    default:
+      return { color: "#0F172A", label: "Destino" };
+  }
+};
+
 export function MapView({ places, onBack, initialPlace }: MapViewProps) {
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const markersLayerRef = useRef<L.LayerGroup | null>(null);
-  const routeLayerRef = useRef<L.Polyline | null>(null);
-  const userMarkerRef = useRef<L.Marker | null>(null);
-  const userAccuracyCircleRef = useRef<L.Circle | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<{ marker: mapboxgl.Marker; el: HTMLElement; place: PlaceItem }[]>([]);
+  const popupRef = useRef<mapboxgl.Popup | null>(null);
+  const geolocateRef = useRef<mapboxgl.GeolocateControl | null>(null);
+  const routeCoordsRef = useRef<[number, number][] | null>(null);
+  const fetchRouteRef = useRef<
+    ((destination: PlaceItem, mode?: TravelMode, origin?: UserLocation | null) => Promise<void>) | null
+  >(null);
+  const userLocRef = useRef<UserLocation | null>(null);
+
+  // Turn-by-turn navigation data
+  interface NavStep {
+    dist: number; // meters along the route where this maneuver happens
+    text: string;
+    announced: boolean;
+  }
+  const navRef = useRef<{
+    coords: [number, number][];
+    cum: number[]; // cumulative meters along coords
+    steps: NavStep[];
+    arrived: boolean;
+  } | null>(null);
+  const [navInstruction, setNavInstruction] = useState<string | null>(null);
 
   const [activeFilter, setActiveFilter] = useState<FilterType>("todos");
-  const [userLatLng, setUserLatLng] = useState<[number, number]>(DEFAULT_COCHABAMBA_LATLNG);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [isLiveGps, setIsLiveGps] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<PlaceItem | null>(initialPlace || null);
   const [travelMode, setTravelMode] = useState<TravelMode>("driving");
@@ -56,417 +136,537 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
     isFallback?: boolean;
   } | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+  const [navigating, setNavigating] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
+  const [hideSkeleton, setHideSkeleton] = useState(false);
 
-  // 1. Geolocation tracker
+  // ─── 1. Initialize Mapbox map ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    const map = new mapboxgl.Map({
+      container: containerRef.current,
+      style: "mapbox://styles/mapbox/streets-v12",
+      center: DEFAULT_COCHABAMBA,
+      zoom: 12.4,
+      attributionControl: false,
+    });
+
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+    map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
+
+    const geolocate = new mapboxgl.GeolocateControl({
+      trackUserLocation: true,
+      showUserLocation: true,
+      showAccuracyCircle: true,
+    });
+    geolocateRef.current = geolocate;
+    map.addControl(geolocate, "top-right");
+
+    map.on("load", () => {
+      ensureRouteLayers(map);
+      map.resize();
+      setMapReady(true);
+      window.setTimeout(() => setHideSkeleton(true), 500);
+      // Auto-start GPS tracking (real-time user location)
+      try {
+        geolocate.trigger();
+      } catch {
+        /* permission denied or unsupported — map still works centered */
+      }
+    });
+
+    // Safety fallback: never trap the user behind the skeleton
+    const readyTimeout = window.setTimeout(() => {
+      setMapReady(true);
+      setHideSkeleton(true);
+    }, 10000);
+
+    map.on("geolocate", (e: any) => {
+      const { longitude, latitude } = e.coords;
+      setUserLocation({ lng: longitude, lat: latitude });
+      setIsLiveGps(true);
+    });
+
+    map.on("geolocateerror", () => setIsLiveGps(false));
+
+    mapRef.current = map;
+
+    return () => {
+      window.clearTimeout(readyTimeout);
+      markersRef.current.forEach((m) => m.marker.remove());
+      markersRef.current = [];
+      popupRef.current?.remove();
+      stopSpeaking();
+      map.remove();
+      mapRef.current = null;
+      geolocateRef.current = null;
+    };
+  }, []);
+
+  // ─── 1b. Real-time user location (native Geolocation, independent of Mapbox) ──
   useEffect(() => {
     if (!navigator.geolocation) return;
 
-    const onSuccess = (pos: GeolocationPosition) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      setUserLatLng([lat, lng]);
-      setIsLiveGps(true);
-
-      // Update user marker if map is active
-      if (mapRef.current) {
-        if (!userMarkerRef.current) {
-          const userIcon = L.divIcon({
-            className: "custom-user-gps-marker",
-            html: `
-              <div style="position: relative; width: 22px; height: 22px;">
-                <div style="position: absolute; inset: -6px; border-radius: 50%; background: rgba(37, 99, 235, 0.25); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-                <div style="position: absolute; inset: 0; border-radius: 50%; background: #2563EB; border: 3px solid #FFFFFF; box-shadow: 0 2px 6px rgba(0,0,0,0.35);"></div>
-              </div>
-            `,
-            iconSize: [22, 22],
-            iconAnchor: [11, 11],
-          });
-
-          userMarkerRef.current = L.marker([lat, lng], {
-            icon: userIcon,
-            zIndexOffset: 1000,
-          }).addTo(mapRef.current);
-          userMarkerRef.current.bindPopup(
-            '<div style="font-family: inherit; font-size: 12px; font-weight: 700; color: #0F172A; text-align: center;">📍 Tu ubicación actual</div>'
-          );
-        } else {
-          userMarkerRef.current.setLatLng([lat, lng]);
-        }
-
-        if (pos.coords.accuracy && pos.coords.accuracy < 1500) {
-          if (!userAccuracyCircleRef.current) {
-            userAccuracyCircleRef.current = L.circle([lat, lng], {
-              radius: Math.min(pos.coords.accuracy, 250),
-              color: "#3B82F6",
-              weight: 1,
-              fillColor: "#60A5FA",
-              fillOpacity: 0.12,
-            }).addTo(mapRef.current);
-          } else {
-            userAccuracyCircleRef.current.setLatLng([lat, lng]);
-            userAccuracyCircleRef.current.setRadius(Math.min(pos.coords.accuracy, 250));
-          }
-        }
-      }
-    };
-
-    const onError = (err: GeolocationPositionError) => {
-      console.warn("GPS unavailable or permission denied, using default Cochabamba center:", err.message);
-    };
-
-    navigator.geolocation.getCurrentPosition(onSuccess, onError, {
-      enableHighAccuracy: true,
-      timeout: 8000,
-    });
-
-    const watchId = navigator.geolocation.watchPosition(onSuccess, onError, {
-      enableHighAccuracy: true,
-      maximumAge: 12000,
-      timeout: 10000,
-    });
-
-    return () => {
-      navigator.geolocation.clearWatch(watchId);
-    };
-  }, []);
-
-  // 2. Initialize Leaflet Map
-  useEffect(() => {
-    if (!mapContainerRef.current) return;
-    if (mapRef.current) return; // Prevent double initialization
-
-    // Default center
-    const center = userLatLng;
-
-    const mapInstance = L.map(mapContainerRef.current, {
-      center,
-      zoom: 13,
-      zoomControl: false,
-      attributionControl: true,
-    });
-
-    // CartoDB Voyager tiles (100% free, high performance, elegant modern travel style)
-    const voyagerTiles = L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-      {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noreferrer">CARTO</a>',
-        subdomains: "abcd",
-        maxZoom: 19,
-      }
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        setUserLocation({ lng: pos.coords.longitude, lat: pos.coords.latitude });
+        setIsLiveGps(true);
+      },
+      () => setIsLiveGps(false),
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
     );
-    voyagerTiles.addTo(mapInstance);
 
-    // Zoom controls in modern bottom-right position
-    L.control.zoom({ position: "bottom-right" }).addTo(mapInstance);
-
-    // Markers layer group
-    const markersGroup = L.layerGroup().addTo(mapInstance);
-    markersLayerRef.current = markersGroup;
-
-    mapRef.current = mapInstance;
-
-    // Trigger map container size invalidation once mounted
-    setTimeout(() => {
-      mapInstance.invalidateSize();
-    }, 250);
-
-    return () => {
-      mapInstance.remove();
-      mapRef.current = null;
-    };
+    return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
-  // 3. Helper to get category visual tokens
-  const getCategoryTheme = (category: string) => {
-    switch (category) {
-      case "gastronomia":
-        return { color: "#BE123C", bg: "bg-rose-50 text-rose-800 border-rose-200", icon: "🍽️", label: "Gastronomía" };
-      case "cultura":
-        return { color: "#7C3AED", bg: "bg-purple-50 text-purple-800 border-purple-200", icon: "🎭", label: "Cultura" };
-      case "naturaleza":
-        return { color: "#059669", bg: "bg-emerald-50 text-emerald-800 border-emerald-200", icon: "🌿", label: "Naturaleza" };
-      case "aventura":
-        return { color: "#0284C7", bg: "bg-sky-50 text-sky-800 border-sky-200", icon: "🧗", label: "Aventura" };
-      default:
-        return { color: "#0F172A", bg: "bg-slate-100 text-slate-800 border-slate-200", icon: "📍", label: "Destino" };
+  // ─── 2. Route layers helper ───────────────────────────────────────────────
+  const ensureRouteLayers = (map: mapboxgl.Map) => {
+    if (!map.isStyleLoaded() || map.getSource("route")) return;
+
+    // Insert route layers BELOW text labels but ABOVE roads/geometry.
+    // The first "symbol" layer in streets-v12 is an arrow icon, not a label —
+    // so we target the first symbol layer that actually renders text.
+    const styleLayers = map.getStyle().layers ?? [];
+    const labelLayer = styleLayers.find(
+      (l) => l.type === "symbol" && (l.layout as any)?.["text-field"]
+    );
+    const fallbackSymbol = styleLayers.find((l) => l.type === "symbol");
+    const beforeId = labelLayer?.id ?? fallbackSymbol?.id;
+
+    map.addSource("route", {
+      type: "geojson",
+      data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [] } },
+    });
+
+    map.addLayer(
+      {
+        id: "route-casing",
+        type: "line",
+        source: "route",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": "#FFFFFF",
+          "line-width": 6,
+          "line-opacity": 0.9,
+        },
+      },
+      beforeId
+    );
+
+    map.addLayer(
+      {
+        id: "route-line",
+        type: "line",
+        source: "route",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": 3.5,
+          "line-opacity": 0.9,
+        },
+      },
+      beforeId
+    );
+  };
+
+  // ─── 3. Marker element (created once, styled in place → no jumping) ───────
+  // IMPORTANT: Mapbox positions the OUTER element via CSS transform. All visual
+  // styles/hover go on the INNER circle so transforms never fight the map.
+  const applyMarkerStyle = (el: HTMLElement, place: PlaceItem, isSelected: boolean) => {
+    const theme = getCategoryTheme(place.category);
+    const size = isSelected ? 36 : 30;
+    el.style.width = `${size}px`;
+    el.style.height = `${size}px`;
+    el.style.backgroundColor = theme.color;
+    el.style.boxShadow = isSelected
+      ? `0 0 0 5px ${theme.color}45, 0 8px 18px rgba(0,0,0,.4)`
+      : "0 3px 8px rgba(0,0,0,.3)";
+    const svg = el.querySelector("svg");
+    if (svg) {
+      svg.setAttribute("width", isSelected ? "15" : "13");
+      svg.setAttribute("height", isSelected ? "15" : "13");
     }
   };
 
-  // 4. Fetch & Draw Route between User and Destination
+  const buildMarkerElement = (place: PlaceItem): { outer: HTMLElement; inner: HTMLElement } => {
+    const outer = document.createElement("div");
+    outer.style.cssText = "cursor:pointer;user-select:none;";
+
+    const inner = document.createElement("div");
+    inner.style.cssText = `
+      display:flex; align-items:center; justify-content:center;
+      border:2.5px solid #FFFFFF; border-radius:50%; color:#fff;
+      transition:transform .15s ease, width .15s ease, height .15s ease, box-shadow .15s ease;
+    `;
+    inner.innerHTML = categoryIconSvg(place.category);
+    inner.addEventListener("mouseenter", () => (inner.style.transform = "scale(1.12)"));
+    inner.addEventListener("mouseleave", () => (inner.style.transform = "scale(1)"));
+    applyMarkerStyle(inner, place, false);
+
+    outer.appendChild(inner);
+    return { outer, inner };
+  };
+
+  // ─── 4. Popup builder ─────────────────────────────────────────────────────
+  const openPlacePopup = (place: PlaceItem, map: mapboxgl.Map) => {
+    popupRef.current?.remove();
+
+    const [lng, lat] = place.coordinates!;
+    const loc = userLocRef.current;
+    const distKm = loc ? haversineKm(loc.lat, loc.lng, lat, lng) : null;
+
+    const theme = getCategoryTheme(place.category);
+    const el = document.createElement("div");
+    el.style.cssText = "min-width:230px;font-family:inherit;border-radius:12px;overflow:hidden;";
+    el.innerHTML = `
+      <div style="position:relative;height:96px;background:#0F172A;">
+        <img src="${place.image}" alt="${place.title}" style="width:100%;height:100%;object-fit:cover;display:block;" />
+        <span style="position:absolute;top:8px;right:8px;background:rgba(15,23,42,.85);color:#F8FAFC;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">${place.rating} ★</span>
+      </div>
+      <div style="padding:10px 12px 12px;background:#fff;">
+        <h4 style="margin:0 0 4px;font-size:14px;font-weight:800;color:#0F172A;line-height:1.25;">${place.title}</h4>
+        <p style="margin:0 0 8px;font-size:11px;color:#64748B;">${place.area}</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #E2E8F0;padding-top:8px;">
+          <span style="font-size:11px;color:#2563EB;font-weight:700;">${distKm !== null ? `A ${distKm} km` : ""}</span>
+          <span style="font-size:10px;background:${theme.color};color:#fff;padding:2px 7px;border-radius:6px;font-weight:700;">${place.tag || theme.label}</span>
+        </div>
+      </div>
+    `;
+
+    popupRef.current = new mapboxgl.Popup({ offset: 28, closeButton: false, maxWidth: "280px" })
+      .setLngLat([lng, lat])
+      .setDOMContent(el)
+      .addTo(map);
+  };
+
+  // ─── 5. Fetch & draw route (Mapbox Directions API) ────────────────────────
   const fetchAndDrawRoute = useCallback(
-    async (destination: PlaceItem, mode: TravelMode = travelMode) => {
-      if (!destination.coordinates || !mapRef.current) return;
+    async (destination: PlaceItem, mode: TravelMode = travelMode, origin?: UserLocation | null) => {
+      const map = mapRef.current;
+      if (!map || !destination.coordinates) return;
 
-      setIsLoadingRoute(true);
-
-      const [destLng, destLat] = destination.coordinates;
-      const [userLat, userLng] = userLatLng;
-
-      // Clean existing route polyline
-      if (routeLayerRef.current) {
-        routeLayerRef.current.remove();
-        routeLayerRef.current = null;
+      // If the style isn't ready yet, retry once it loads
+      if (!map.isStyleLoaded()) {
+        map.once("load", () => fetchAndDrawRoute(destination, mode, origin));
+        return;
       }
 
-      // Try free OSRM Routing API (works without any secret tokens)
-      const osrmProfile = mode === "walking" ? "foot" : "car";
-      const osrmUrl = `https://router.project-osrm.org/route/v1/${osrmProfile}/${userLng},${userLat};${destLng},${destLat}?overview=full&geometries=geojson`;
+      // Origin: explicit > GPS > map center (so a route always draws)
+      const center = map.getCenter();
+      const originLoc = origin ?? userLocation ?? { lng: center.lng, lat: center.lat };
+      setSelectedPlace(destination);
+
+      const [destLng, destLat] = destination.coordinates;
+      const profile = mode === "walking" ? "walking" : "driving";
+      const routeColor = mode === "walking" ? "#059669" : "#2563EB";
+
+      setIsLoadingRoute(true);
+      stopSpeaking(); // clear any stale queued utterances from a previous route
+      ensureRouteLayers(map);
+
+      const url =
+        `https://api.mapbox.com/directions/v5/mapbox/${profile}/` +
+        `${originLoc.lng},${originLoc.lat};${destLng},${destLat}` +
+        `?geometries=geojson&overview=full&steps=true&language=es&access_token=${MAPBOX_TOKEN}`;
+
+      const paintRoute = (coords: [number, number][], distanceKm: number, durationMin: number, isFallback = false) => {
+        const source = map.getSource("route") as mapboxgl.GeoJSONSource | undefined;
+        if (source) {
+          source.setData({
+            type: "Feature",
+            properties: { color: routeColor },
+            geometry: { type: "LineString", coordinates: coords },
+          });
+        }
+        routeCoordsRef.current = coords;
+        setRouteInfo({ distanceKm, durationMin, isFallback });
+
+        const lons = coords.map((c) => c[0]);
+        const lats = coords.map((c) => c[1]);
+        map.fitBounds(
+          [
+            [Math.min(...lons), Math.min(...lats)],
+            [Math.max(...lons), Math.max(...lats)],
+          ],
+          { padding: { top: 90, bottom: 220, left: 60, right: 60 }, maxZoom: 16, duration: 1200 }
+        );
+      };
 
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Directions ${res.status}`);
+        const data = await res.json();
+        const route = data.routes?.[0];
+        if (!route) throw new Error("No route");
 
-        const response = await fetch(osrmUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
+        const coords: [number, number][] = route.geometry.coordinates;
 
-        if (!response.ok) throw new Error("OSRM service status not OK");
-        const data = await response.json();
-
-        if (data.routes && data.routes.length > 0) {
-          const route = data.routes[0];
-          const distanceKm = Math.round((route.distance / 1000) * 10) / 10;
-          const durationMin = Math.max(1, Math.round(route.duration / 60));
-
-          setRouteInfo({ distanceKm, durationMin, isFallback: false });
-
-          // Convert GeoJSON [lng, lat] to Leaflet [lat, lng]
-          const latLngs: [number, number][] = route.geometry.coordinates.map(
-            (c: [number, number]) => [c[1], c[0]]
+        // ── Build turn-by-turn data (maneuver instructions along the route) ──
+        const cum: number[] = [0];
+        for (let i = 1; i < coords.length; i++) {
+          cum.push(
+            cum[i - 1] +
+              haversineKm(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0]) * 1000
           );
-
-          // Draw sleek polyline with border casing
-          const polyline = L.polyline(latLngs, {
-            color: mode === "walking" ? "#059669" : "#2563EB",
-            weight: 5.5,
-            opacity: 0.88,
-            lineJoin: "round",
-            lineCap: "round",
-          });
-
-          polyline.addTo(mapRef.current);
-          routeLayerRef.current = polyline;
-
-          mapRef.current.fitBounds(polyline.getBounds(), {
-            padding: [70, 70],
-            maxZoom: 16,
-          });
-          return;
         }
-        throw new Error("No routes in response");
-      } catch (err) {
-        // Fallback: Geodesic straight line with real-world distance
-        const straightDistance = calculateDistanceKm(userLat, userLng, destLat, destLng);
-        const estDuration = Math.max(
-          2,
-          Math.round((straightDistance / (mode === "walking" ? 4.5 : 30)) * 60)
+
+        const stepsIn = (route.legs?.[0]?.steps ?? []) as any[];
+        const navSteps: NavStep[] = stepsIn
+          .map((s) => {
+            const loc = s.maneuver?.location as [number, number] | undefined;
+            let bestIdx = 0;
+            let bestD = Infinity;
+            if (loc) {
+              coords.forEach((c, i) => {
+                const d = Math.abs(c[0] - loc[0]) + Math.abs(c[1] - loc[1]);
+                if (d < bestD) {
+                  bestD = d;
+                  bestIdx = i;
+                }
+              });
+            }
+            const text =
+              s.maneuver?.instruction?.trim() ||
+              (s.name ? `Continúa por ${s.name}` : "Continúa por la ruta");
+            return { dist: cum[bestIdx] ?? 0, text, announced: false };
+          })
+          // Keep the depart step (dist 0) — it is the first "head out" instruction
+          .filter((s, i) => i === 0 || s.dist > 0);
+
+        navRef.current = { coords, cum, steps: navSteps, arrived: false };
+        setNavInstruction(null);
+
+        paintRoute(
+          coords,
+          Math.round((route.distance / 1000) * 10) / 10,
+          Math.max(1, Math.round(route.duration / 60))
         );
-
-        setRouteInfo({
-          distanceKm: straightDistance,
-          durationMin: estDuration,
-          isFallback: true,
-        });
-
-        if (mapRef.current) {
-          const latLngs: [number, number][] = [
-            [userLat, userLng],
-            [destLat, destLng],
-          ];
-          const fallbackPoly = L.polyline(latLngs, {
-            color: "#2563EB",
-            weight: 4,
-            opacity: 0.75,
-            dashArray: "8, 8",
-            lineJoin: "round",
-          });
-          fallbackPoly.addTo(mapRef.current);
-          routeLayerRef.current = fallbackPoly;
-
-          mapRef.current.fitBounds(fallbackPoly.getBounds(), {
-            padding: [70, 70],
-            maxZoom: 16,
-          });
-        }
+      } catch {
+        // Fallback: línea recta con distancia real (sin instrucciones de giro)
+        navRef.current = null;
+        setNavInstruction(null);
+        const distKm = haversineKm(originLoc.lat, originLoc.lng, destLat, destLng);
+        const estMin = Math.max(2, Math.round((distKm / (mode === "walking" ? 4.5 : 30)) * 60));
+        paintRoute(
+          [
+            [originLoc.lng, originLoc.lat],
+            [destLng, destLat],
+          ],
+          distKm,
+          estMin,
+          true
+        );
       } finally {
         setIsLoadingRoute(false);
       }
     },
-    [userLatLng, travelMode]
+    [userLocation, travelMode]
   );
 
-  // 5. Clear active route
+  // Keep latest callbacks/location in refs so marker click handlers never go stale
+  fetchRouteRef.current = fetchAndDrawRoute;
+  userLocRef.current = userLocation;
+
+  // ─── 6. Markers (created once per filter/data; selection updates style only) ──
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    markersRef.current.forEach((m) => m.marker.remove());
+    markersRef.current = [];
+
+    const filtered =
+      activeFilter === "todos" ? places : places.filter((p) => p.category === activeFilter);
+
+    filtered.forEach((place) => {
+      if (!place.coordinates) return;
+      const [lng, lat] = place.coordinates;
+
+      const { outer, inner } = buildMarkerElement(place);
+      const marker = new mapboxgl.Marker({ element: outer, anchor: "center" })
+        .setLngLat([lng, lat])
+        .addTo(map);
+
+      marker.getElement().addEventListener("click", () => {
+        setSelectedPlace(place);
+        openPlacePopup(place, map);
+        fetchRouteRef.current?.(place);
+      });
+
+      markersRef.current.push({ marker, el: inner, place });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [places, activeFilter]);
+
+  // Update only the selected/unselected marker styles — no recreation, no jump
+  useEffect(() => {
+    markersRef.current.forEach(({ el, place }) => {
+      applyMarkerStyle(el, place, selectedPlace?.id === place.id);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPlace?.id]);
+
+  // ─── 7. Initial place ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!initialPlace?.coordinates || !mapRef.current) return;
+    setSelectedPlace(initialPlace);
+    // Esperar a que el mapa esté listo para trazar
+    const map = mapRef.current;
+    const run = () => {
+      openPlacePopup(initialPlace, map);
+      fetchAndDrawRoute(initialPlace);
+    };
+    if (map.loaded()) run();
+    else map.once("load", run);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPlace]);
+
+  // ─── 8. Clear route ───────────────────────────────────────────────────────
   const clearRoute = useCallback(() => {
     setSelectedPlace(null);
     setRouteInfo(null);
-    if (routeLayerRef.current) {
-      routeLayerRef.current.remove();
-      routeLayerRef.current = null;
-    }
+    setNavigating(false);
+    setNavInstruction(null);
+    navRef.current = null;
+    stopSpeaking();
+    routeCoordsRef.current = null;
+    popupRef.current?.remove();
+    const map = mapRef.current;
+    const source = map?.getSource("route") as mapboxgl.GeoJSONSource | undefined;
+    source?.setData({
+      type: "Feature",
+      properties: {},
+      geometry: { type: "LineString", coordinates: [] },
+    });
   }, []);
 
-  // 6. Draw Place Markers whenever filter, places, or selectedPlace change
+  // ─── 9. Auto-route to NEAREST place on first real-time GPS fix ────────────
+  const autoRoutedRef = useRef(false);
   useEffect(() => {
-    if (!mapRef.current || !markersLayerRef.current) return;
+    const map = mapRef.current;
+    if (!userLocation || autoRoutedRef.current || !map) return;
+    autoRoutedRef.current = true;
 
-    markersLayerRef.current.clearLayers();
-
-    const filteredPlaces =
-      activeFilter === "todos"
-        ? places
-        : places.filter((p) => p.category === activeFilter);
-
-    filteredPlaces.forEach((place) => {
-      if (!place.coordinates) return;
-
-      const [destLng, destLat] = place.coordinates;
-      const isSelected = selectedPlace?.id === place.id;
-      const theme = getCategoryTheme(place.category);
-      const distFromUser = calculateDistanceKm(userLatLng[0], userLatLng[1], destLat, destLng);
-
-      // Create modern divIcon marker
-      const markerHtml = `
-        <div style="position: relative; cursor: pointer; transition: transform 0.2s ease;">
-          <div style="
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: ${isSelected ? "34px" : "28px"};
-            height: ${isSelected ? "34px" : "28px"};
-            background-color: ${theme.color};
-            border: 2.5px solid #FFFFFF;
-            border-radius: 50%;
-            box-shadow: ${
-              isSelected
-                ? `0 0 0 4px ${theme.color}45, 0 8px 16px rgba(0,0,0,0.35)`
-                : "0 3px 8px rgba(0,0,0,0.28)"
-            };
-            font-size: ${isSelected ? "14px" : "12px"};
-            color: white;
-            user-select: none;
-          ">
-            ${theme.icon}
-          </div>
-        </div>
-      `;
-
-      const customIcon = L.divIcon({
-        className: "custom-place-div-icon",
-        html: markerHtml,
-        iconSize: [isSelected ? 34 : 28, isSelected ? 34 : 28],
-        iconAnchor: [isSelected ? 17 : 14, isSelected ? 17 : 14],
-        popupAnchor: [0, -18],
-      });
-
-      const marker = L.marker([destLat, destLng], { icon: customIcon });
-
-      // Custom modern popup
-      const popupHtml = `
-        <div style="min-width: 220px; font-family: inherit; border-radius: 12px; overflow: hidden; padding: 2px;">
-          <div style="position: relative; height: 100px; margin: -2px -2px 10px -2px; border-radius: 10px 10px 0 0; overflow: hidden; background: #0F172A;">
-            <img src="${place.image}" alt="${place.title}" style="width: 100%; height: 100%; object-fit: cover;" />
-            <span style="position: absolute; top: 8px; right: 8px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px); color: #F8FAFC; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;">
-              ⭐ ${place.rating}
-            </span>
-          </div>
-          <div style="padding: 0 4px 6px 4px;">
-            <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 800; color: #0F172A; line-height: 1.2;">${place.title}</h4>
-            <p style="margin: 0 0 8px 0; font-size: 11px; color: #64748B;">📍 ${place.area}</p>
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid #E2E8F0; padding-top: 8px;">
-              <span style="font-size: 11px; color: #2563EB; font-weight: 700;">A ${distFromUser} km</span>
-              <span style="font-size: 10px; background: ${theme.color}; color: white; padding: 2px 7px; border-radius: 6px; font-weight: 700;">${place.tag}</span>
-            </div>
-          </div>
-        </div>
-      `;
-
-      marker.bindPopup(popupHtml, {
-        closeButton: false,
-        className: "modern-leaflet-popup",
-      });
-
-      marker.on("click", () => {
-        setSelectedPlace(place);
-        fetchAndDrawRoute(place);
-      });
-
-      marker.addTo(markersLayerRef.current!);
-    });
-  }, [places, activeFilter, selectedPlace, userLatLng, fetchAndDrawRoute]);
-
-  // 7. Initial place handling
-  useEffect(() => {
-    if (initialPlace && initialPlace.coordinates) {
-      setSelectedPlace(initialPlace);
-      fetchAndDrawRoute(initialPlace);
-    }
-  }, [initialPlace, fetchAndDrawRoute]);
-
-  // 8. Handle filter click
-  const handleFilterClick = (filter: FilterType) => {
-    setActiveFilter(filter);
-
-    if (filter === "gastronomia") {
-      const gastroPlaces = places.filter(
-        (p) => p.category === "gastronomia" && p.coordinates
-      );
-      if (gastroPlaces.length > 0) {
-        let closest = gastroPlaces[0];
-        let minDistance = Infinity;
-        gastroPlaces.forEach((p) => {
-          if (p.coordinates) {
-            const dist = calculateDistanceKm(
-              userLatLng[0],
-              userLatLng[1],
-              p.coordinates[1],
-              p.coordinates[0]
-            );
-            if (dist < minDistance) {
-              minDistance = dist;
-              closest = p;
-            }
-          }
-        });
-        setSelectedPlace(closest);
-        fetchAndDrawRoute(closest);
+    let nearest: PlaceItem | null = null;
+    let minDist = Infinity;
+    places.forEach((p) => {
+      if (!p.coordinates) return;
+      const [lng, lat] = p.coordinates;
+      const d = haversineKm(userLocation.lat, userLocation.lng, lat, lng);
+      if (d < minDist) {
+        minDist = d;
+        nearest = p;
       }
-    } else {
-      clearRoute();
-    }
-  };
+    });
 
-  // 9. Recenter on user
-  const handleCenterUser = () => {
-    if (mapRef.current) {
-      mapRef.current.setView(userLatLng, 15, { animate: true });
+    if (nearest) {
+      setSelectedPlace(nearest);
+      openPlacePopup(nearest, map);
+      fetchRouteRef.current?.(nearest, travelMode, userLocation);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLocation]);
 
-  // 10. Recenter on active route
+  // ─── 10. Center on route ──────────────────────────────────────────────────
   const handleCenterRoute = () => {
-    if (mapRef.current && routeLayerRef.current) {
-      mapRef.current.fitBounds(routeLayerRef.current.getBounds(), {
-        padding: [70, 70],
-        maxZoom: 16,
-      });
-    }
+    const map = mapRef.current;
+    const coords = routeCoordsRef.current;
+    if (!map || !coords || coords.length === 0) return;
+    const lons = coords.map((c) => c[0]);
+    const lats = coords.map((c) => c[1]);
+    map.fitBounds(
+      [
+        [Math.min(...lons), Math.min(...lats)],
+        [Math.max(...lons), Math.max(...lats)],
+      ],
+      { padding: { top: 90, bottom: 220, left: 60, right: 60 }, maxZoom: 16, duration: 1000 }
+    );
   };
 
-  // List of gastronomic destinations for quick switcher
-  const gastroPlacesWithCoords = places
-    .filter((p) => p.category === "gastronomia" && p.coordinates)
-    .map((p) => ({
-      ...p,
-      distanceKm: p.coordinates
-        ? calculateDistanceKm(userLatLng[0], userLatLng[1], p.coordinates[1], p.coordinates[0])
-        : 0,
-    }))
-    .sort((a, b) => a.distanceKm - b.distanceKm);
+  // ─── Derived UI data ──────────────────────────────────────────────────────
+  // ─── Keep user + destination framed while "navegando" ─────────────────────
+  // Frames BOTH points on every GPS update so the full route stays visible
+  // instead of zooming into the user and losing the trayecto off-screen.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!navigating || !userLocation || !map || !selectedPlace?.coordinates) return;
+    const [dlng, dlat] = selectedPlace.coordinates;
+    const lons = [userLocation.lng, dlng];
+    const lats = [userLocation.lat, dlat];
+    map.fitBounds(
+      [
+        [Math.min(...lons), Math.min(...lats)],
+        [Math.max(...lons), Math.max(...lats)],
+      ],
+      { padding: { top: 80, bottom: 230, left: 50, right: 50 }, maxZoom: 16, duration: 900 }
+    );
+  }, [userLocation, navigating, selectedPlace?.id]);
 
-  // Generate Google Maps external URL
-  const googleMapsUrl = selectedPlace?.coordinates
-    ? `https://www.google.com/maps/dir/?api=1&origin=${userLatLng[0]},${userLatLng[1]}&destination=${selectedPlace.coordinates[1]},${selectedPlace.coordinates[0]}&travelmode=${travelMode}`
-    : null;
+  // ─── Turn-by-turn voice guidance while navigating ─────────────────────────
+  useEffect(() => {
+    if (!navigating || !userLocation) {
+      setNavInstruction(null);
+      return;
+    }
+    const nav = navRef.current;
+    if (!nav || nav.coords.length === 0) {
+      setNavInstruction(selectedPlace ? `Dirígete a ${selectedPlace.title}` : null);
+      return;
+    }
+
+    // Progress = distance along route of the coord closest to the user
+    let bestIdx = 0;
+    let bestD = Infinity;
+    nav.coords.forEach((c, i) => {
+      const d = haversineKm(userLocation.lat, userLocation.lng, c[1], c[0]);
+      if (d < bestD) {
+        bestD = d;
+        bestIdx = i;
+      }
+    });
+    const progress = nav.cum[bestIdx] ?? 0;
+
+    // Announce upcoming maneuvers ~200 m ahead (Google-style: "En X metros, ...")
+    // and mark passed ones so they never repeat.
+    let next: NavStep | null = null;
+    for (const step of nav.steps) {
+      const remaining = step.dist - progress;
+      if (!step.announced) {
+        if (remaining <= 200 && remaining > -40) {
+          const distText = remaining > 15 ? `En ${Math.round(remaining)} metros, ` : "";
+          speakEs(`${distText}${step.text}`);
+          step.announced = true;
+        } else if (remaining <= -40) {
+          step.announced = true; // passed without announcing (GPS jump)
+        } else {
+          next = step;
+          break;
+        }
+      }
+    }
+
+    // Arrival announcement
+    if (selectedPlace?.coordinates && !nav.arrived) {
+      const [dlng, dlat] = selectedPlace.coordinates;
+      if (haversineKm(userLocation.lat, userLocation.lng, dlat, dlng) < 0.06) {
+        nav.arrived = true;
+        speakEs("Has llegado a tu destino");
+      }
+    }
+
+    if (next) {
+      const remainingM = Math.max(0, Math.round(next.dist - progress));
+      setNavInstruction(
+        remainingM > 0 ? `En ${remainingM} m — ${next.text}` : next.text
+      );
+    } else {
+      setNavInstruction(
+        selectedPlace ? `Dirígete a ${selectedPlace.title}` : null
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLocation, navigating, selectedPlace?.id]);
 
   return (
     <div className="relative min-h-screen bg-slate-50 font-sans overflow-hidden">
@@ -475,7 +675,7 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
 
       {/* Top Header */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md shadow-xs border-b border-slate-200">
-        <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between px-4 sm:px-8">
+        <div className="relative mx-auto flex h-16 max-w-[1240px] items-center px-4 sm:px-8">
           <button
             type="button"
             onClick={onBack}
@@ -485,38 +685,65 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
             <span>Volver al inicio</span>
           </button>
 
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🧭</span>
+          <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 pointer-events-none">
             <h1 className="font-subtitle text-sm sm:text-base font-extrabold text-slate-900">
               Mapa Interactivo de Cochabamba
             </h1>
-            <span
-              className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold ${
-                isLiveGps
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                  : "bg-slate-100 text-slate-600 border border-slate-200"
-              }`}
-            >
-              <span className={`h-2 w-2 rounded-full ${isLiveGps ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
-              <span>{isLiveGps ? "GPS en tiempo real" : "Centro Cochabamba"}</span>
-            </span>
           </div>
-
-          <button
-            type="button"
-            onClick={handleCenterUser}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-subtitle font-bold text-slate-700 transition shadow-xs cursor-pointer"
-            title="Ubicar mi posición en el mapa"
-          >
-            <span>🎯</span>
-            <span className="hidden sm:inline">Mi Ubicación</span>
-          </button>
         </div>
       </header>
 
       {/* Map Content Area */}
       <div className="relative h-[calc(100vh-64px)] w-full">
-        {/* Floating Category Filter Chips (Modern, non-infantile) */}
+        {/* Skeleton shimmer while the map style/tiles load */}
+        {!hideSkeleton && (
+          <div
+            className={`absolute inset-0 z-10 bg-slate-100 overflow-hidden ${mapReady ? "map-skeleton-fade" : ""}`}
+            aria-hidden="true"
+          >
+            {/* Fake filter pills row */}
+            <div className="absolute top-5 left-1/2 -translate-x-1/2 flex gap-2">
+              {[64, 92, 88, 96, 84].map((w, i) => (
+                <div key={i} className="map-skeleton-shimmer h-9 rounded-full" style={{ width: w }} />
+              ))}
+            </div>
+
+            {/* Fake place markers scattered like real POIs */}
+            {[
+              { top: "34%", left: "30%", size: 34 },
+              { top: "46%", left: "52%", size: 30 },
+              { top: "58%", left: "38%", size: 34 },
+              { top: "40%", left: "66%", size: 30 },
+              { top: "62%", left: "60%", size: 30 },
+              { top: "30%", left: "44%", size: 26 },
+              { top: "52%", left: "24%", size: 26 },
+            ].map((m, i) => (
+              <div
+                key={i}
+                className="map-skeleton-shimmer absolute rounded-full border-[3px] border-white shadow-md"
+                style={{ top: m.top, left: m.left, width: m.size, height: m.size }}
+              />
+            ))}
+
+            {/* Fake route card bottom-left */}
+            <div className="absolute bottom-6 left-6 w-[320px] rounded-xl bg-white shadow-xl border border-slate-200 overflow-hidden">
+              <div className="map-skeleton-shimmer h-20 w-full" />
+              <div className="p-4 space-y-2.5">
+                <div className="map-skeleton-shimmer h-3.5 w-2/3 rounded" />
+                <div className="map-skeleton-shimmer h-3 w-1/2 rounded" />
+                <div className="map-skeleton-shimmer h-9 w-full rounded-lg" />
+              </div>
+            </div>
+
+            {/* Loading label */}
+            <div className="absolute bottom-6 right-6 flex items-center gap-2 rounded-full bg-slate-900/85 px-4 py-2 text-xs font-subtitle font-bold text-white shadow-lg">
+              <span className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span>Cargando mapa de Cochabamba…</span>
+            </div>
+          </div>
+        )}
+
+        {/* Floating Category Filter Pills */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex gap-2 flex-wrap justify-center px-4 max-w-[1240px]">
           {filterButtons.map((filter) => {
             const count =
@@ -530,18 +757,22 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
               <button
                 key={filter.key}
                 type="button"
-                onClick={() => handleFilterClick(filter.key)}
-                className={`px-3.5 py-2 rounded-lg font-subtitle text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5 border ${
+                onClick={() => setActiveFilter(filter.key)}
+                className={`px-4 py-2 rounded-full font-subtitle text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5 border ${
                   isActive
                     ? "bg-slate-900 text-white border-slate-900 shadow-md"
                     : "bg-white/95 text-slate-700 hover:bg-white hover:text-slate-900 border-slate-200"
                 }`}
+                style={isActive ? { backgroundColor: filter.color, borderColor: filter.color } : undefined}
               >
-                <span>{filter.icon}</span>
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: isActive ? "#FFFFFF" : filter.color }}
+                />
                 <span>{filter.label}</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-md font-extrabold ${
-                    isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                    isActive ? "bg-white/25 text-white" : "bg-slate-100 text-slate-500"
                   }`}
                 >
                   {count}
@@ -551,7 +782,7 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
           })}
         </div>
 
-        {/* NAVIGATION BOTTOM DRAWER / ROUTE CARD (Clean, modern architectural design) */}
+        {/* ROUTE CARD (bottom drawer) */}
         {selectedPlace && (
           <div className="absolute bottom-5 left-4 right-4 sm:left-6 sm:right-auto sm:w-[440px] z-30 animate-in fade-in slide-in-from-bottom duration-300">
             <div className="rounded-xl bg-white shadow-2xl border border-slate-200/90 overflow-hidden">
@@ -611,7 +842,7 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
                 {isLoadingRoute ? (
                   <div className="mt-3 flex items-center gap-2 bg-slate-800/80 rounded-lg px-3.5 py-2 text-xs text-slate-300">
                     <span className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Calculando la ruta óptima en el mapa...</span>
+                    <span>Calculando la ruta óptima...</span>
                   </div>
                 ) : routeInfo ? (
                   <div className="mt-3 flex items-center justify-between bg-slate-800/90 rounded-lg px-3.5 py-2 border border-slate-700">
@@ -630,6 +861,23 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
 
               {/* Destination Details */}
               <div className="p-4 bg-white space-y-3">
+                {/* Next turn-by-turn instruction (only while navigating) */}
+                {navigating && navInstruction && (
+                  <div className="flex items-center gap-2.5 rounded-xl bg-emerald-50 border border-emerald-200/80 px-3 py-2.5">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-600 text-white">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15"><path d="M12 2 4.5 20.5 12 17l7.5 3.5L12 2z"/><path d="M12 17v-5"/></svg>
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-subtitle text-[9px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">
+                        Siguiente instrucción
+                      </p>
+                      <p className="font-subtitle text-xs font-bold text-slate-800 leading-snug">
+                        {navInstruction}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-start gap-3">
                   <img
                     src={selectedPlace.image}
@@ -651,73 +899,35 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
                   </div>
                 </div>
 
-                {/* Switcher: Other Gastronomy options (if gastronomy) */}
-                {selectedPlace.category === "gastronomia" && gastroPlacesWithCoords.length > 1 && (
-                  <div>
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-                      Otros destinos gastronómicos:
-                    </p>
-                    <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                      {gastroPlacesWithCoords.map((place) => (
-                        <button
-                          key={place.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedPlace(place);
-                            fetchAndDrawRoute(place);
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-subtitle font-bold transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 shrink-0 border ${
-                            selectedPlace.id === place.id
-                              ? "bg-rose-600 text-white border-rose-600 shadow-xs"
-                              : "bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200"
-                          }`}
-                        >
-                          <span>🍽️</span>
-                          <span>{place.title.split("(")[0]}</span>
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded-md ${
-                              selectedPlace.id === place.id ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"
-                            }`}
-                          >
-                            {place.distanceKm} km
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {/* Bottom Action Buttons */}
                 <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={handleCenterRoute}
-                    className="flex-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white py-2.5 text-xs font-subtitle font-bold shadow-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                    onClick={() => {
+                      // Wake up speech synthesis inside the user gesture so voice works
+                      speakEs(
+                        `Navegación iniciada${selectedPlace ? ` hacia ${selectedPlace.title}` : ""}`
+                      );
+                      setNavigating(true);
+                      handleCenterRoute();
+                    }}
+                    className={`flex-1 rounded-lg py-2.5 text-xs font-subtitle font-bold shadow-xs transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                      navigating
+                        ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                        : "bg-slate-900 hover:bg-slate-800 text-white"
+                    }`}
                   >
-                    <span>🧭</span>
-                    <span>Centrar Trayecto</span>
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M8 5.5v13l11-6.5-11-6.5z"/></svg>
+                    <span>{navigating ? "Navegando…" : "Iniciar navegación"}</span>
                   </button>
-
-                  {googleMapsUrl && (
-                    <a
-                      href={googleMapsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-2.5 text-xs font-subtitle font-bold transition flex items-center gap-1"
-                      title="Abrir en Google Maps para navegación por voz"
-                    >
-                      <span>🗺️</span>
-                      <span className="hidden sm:inline">Google Maps</span>
-                    </a>
-                  )}
 
                   <button
                     type="button"
                     onClick={clearRoute}
-                    className="rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 px-3 py-2.5 text-xs font-bold transition cursor-pointer flex items-center gap-1"
-                    title="Cerrar ruta"
+                    className="rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 px-4 py-2.5 text-xs font-bold transition cursor-pointer"
+                    title="Terminar navegación"
                   >
-                    <span>✕</span>
+                    Salir
                   </button>
                 </div>
               </div>
@@ -726,7 +936,7 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
         )}
 
         {/* Map Container Element */}
-        <div ref={mapContainerRef} className="h-full w-full z-0" />
+        <div ref={containerRef} className="h-full w-full z-0" />
       </div>
     </div>
   );

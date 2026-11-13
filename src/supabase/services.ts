@@ -65,6 +65,11 @@ export async function fetchPlaces(): Promise<PlaceItem[]> {
           time: d.time,
           featured: d.featured,
           visible: d.visible,
+          coordinates: Array.isArray(d.coordinates)
+            ? d.coordinates
+            : d.coordinates && typeof d.coordinates === "object" && "lng" in d.coordinates
+              ? [d.coordinates.lng, d.coordinates.lat]
+              : INITIAL_PLACES.find((p) => p.id === d.id)?.coordinates,
           createdAt: d.created_at || d.createdAt,
           updatedAt: d.updated_at || d.updatedAt,
           createdBy: d.created_by || d.createdBy,
@@ -163,10 +168,17 @@ export async function savePlace(place: PlaceItem): Promise<boolean> {
         consejo: place.consejo,
         dato_historico: place.datoHistorico,
         badges: place.badges,
+        coordinates: place.coordinates,
         created_at: place.createdAt || new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      await supabase.from("places").upsert(dbPayload);
+      const { error } = await supabase.from("places").upsert(dbPayload);
+      // Si la columna `coordinates` no existe aún en la tabla, reintentar sin ella
+      // para no romper el guardado del resto de campos.
+      if (error) {
+        const { coordinates: _coords, ...rest } = dbPayload;
+        await supabase.from("places").upsert(rest);
+      }
     } catch (e) {
       console.warn("Error upserting place to Supabase:", e);
     }

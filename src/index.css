@@ -307,3 +307,23 @@ select {
   background-color: #F8FAFC !important;
   color: #BE123C !important;
 }
+
+/* ─── Mapbox loading skeleton (shimmer) ─────────────────────────────────── */
+@keyframes map-shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.map-skeleton-shimmer {
+  background: linear-gradient(90deg, #E2E8F0 25%, #F1F5F9 50%, #E2E8F0 75%);
+  background-size: 800px 100%;
+  animation: map-shimmer 1.4s ease-in-out infinite;
+}
+
+.map-skeleton-fade {
+  animation: map-skeleton-fade-out 0.45s ease forwards;
+}
+
+@keyframes map-skeleton-fade-out {
+  to { opacity: 0; visibility: hidden; }
+}

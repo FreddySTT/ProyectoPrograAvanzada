@@ -31,6 +31,7 @@ import { ImageZoomModal, type ZoomModalData } from "./components/molecules/Image
 import { PaymentModal } from "./components/organisms/PaymentModal/PaymentModal";
 import { PlaceDetailModal } from "./components/molecules/PlaceDetailModal/PlaceDetailModal";
 import { ZoomImage } from "./components/atoms/ZoomImage/ZoomImage";
+import { MapView } from "./components/MapView";
 import type { SearchOption } from "./components/molecules/SearchCombobox/SearchCombobox";
 import { Icon } from "./components/atoms/Icon/Icon";
 
