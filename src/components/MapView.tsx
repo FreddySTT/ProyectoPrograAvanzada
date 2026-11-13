@@ -21,7 +21,33 @@ interface UserLocation {
 // Cochabamba Coordinates: Plaza 14 de Septiembre [lng, lat]
 const DEFAULT_COCHABAMBA: [number, number] = [-66.1568, -17.3935];
 
-mapboxgl.accessToken = MAPBOX_TOKEN;
+// Estilo libre de OpenStreetMap cuando no hay token de Mapbox configurado
+const OSM_FALLBACK_STYLE: any = {
+  version: 8,
+  sources: {
+    "osm-tiles": {
+      type: "raster",
+      tiles: [
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      ],
+      tileSize: 256,
+      attribution: "&copy; OpenStreetMap contributors",
+    },
+  },
+  layers: [
+    {
+      id: "osm-tiles-layer",
+      type: "raster",
+      source: "osm-tiles",
+      minzoom: 0,
+      maxzoom: 19,
+    },
+  ],
+};
+
+if (MAPBOX_TOKEN) {
+  mapboxgl.accessToken = MAPBOX_TOKEN;
+}
 
 const filterButtons: { key: FilterType; label: string; color: string }[] = [
   { key: "todos", label: "Todos", color: "#0F172A" },
@@ -146,10 +172,20 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
 
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: "mapbox://styles/mapbox/streets-v12",
+      style: MAPBOX_TOKEN ? "mapbox://styles/mapbox/streets-v12" : OSM_FALLBACK_STYLE,
       center: DEFAULT_COCHABAMBA,
       zoom: 12.4,
       attributionControl: false,
+    });
+
+    // En caso de que el token de Mapbox sea inválido, hacer fallback a OpenStreetMap sin bloquear
+    map.on("error", (e: any) => {
+      if (e?.error?.status === 401 || String(e?.error?.message || "").includes("token")) {
+        console.warn("[MapView] Token de Mapbox no válido o no configurado. Cambiando a OpenStreetMap.");
+        try {
+          map.setStyle(OSM_FALLBACK_STYLE);
+        } catch {}
+      }
     });
 
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
@@ -178,9 +214,11 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
 
     // Safety fallback: never trap the user behind the skeleton
     const readyTimeout = window.setTimeout(() => {
+      ensureRouteLayers(map);
+      map.resize();
       setMapReady(true);
       setHideSkeleton(true);
-    }, 10000);
+    }, 2000);
 
     map.on("geolocate", (e: any) => {
       const { longitude, latitude } = e.coords;
