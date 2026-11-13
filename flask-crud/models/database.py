@@ -39,25 +39,44 @@ class SupabaseBridge:
         if not self.is_configured:
             return None
         try:
+            # Filtrar solo columnas existentes en Supabase
+            payload = {
+                k: v for k, v in data.items()
+                if k in self._SUPABASE_PLACE_COLUMNS or k == "id"
+            }
             resp = requests.post(
                 f"{self.url}/rest/v1/places",
                 headers=self._headers(),
-                json=data,
+                json=payload,
                 timeout=6,
             )
             if resp.status_code in (200, 201):
                 res = resp.json()
                 return res[0] if isinstance(res, list) and res else res
+            else:
+                print(f"[SupabaseBridge] create_place error {resp.status_code}: {resp.text[:200]}")
         except Exception as e:
             print(f"[SupabaseBridge] Error creating place: {e}")
         return None
+
+    # Columnas que existen en la tabla `places` de Supabase (verificado en producción)
+    _SUPABASE_PLACE_COLUMNS = {
+        "id", "title", "area", "tag", "category", "image",
+        "rating", "time", "featured", "visible",
+        "created_at", "updated_at", "created_by",
+    }
 
     def update_place(self, place_id: str, data: dict):
         if not self.is_configured:
             return None
         try:
-            payload = {k: v for k, v in data.items() if k != "id"}
+            # Solo enviar columnas que existen en Supabase (evita error 400 PGRST204)
+            payload = {
+                k: v for k, v in data.items()
+                if k != "id" and k in self._SUPABASE_PLACE_COLUMNS
+            }
             payload["updated_at"] = datetime.utcnow().isoformat() + "Z"
+
             resp = requests.patch(
                 f"{self.url}/rest/v1/places?id=eq.{place_id}",
                 headers=self._headers(),
@@ -70,6 +89,8 @@ class SupabaseBridge:
                     return res[0] if isinstance(res, list) and res else res
                 except Exception:
                     return {"id": place_id, **data}
+            else:
+                print(f"[SupabaseBridge] update_place error {resp.status_code}: {resp.text[:200]}")
         except Exception as e:
             print(f"[SupabaseBridge] Error updating place: {e}")
         return None
