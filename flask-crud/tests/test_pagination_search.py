@@ -30,3 +30,4 @@ def test_filtro_por_categoria(client):
     data = res.get_json()["data"]
     for p in data:
         assert p.get("category") == "naturaleza"
+

@@ -89,3 +89,4 @@ describe('Places — Búsqueda, Filtrado y Concurrencia Optimista', () => {
     expect(res.error).toContain('Conflict: Version mismatch')
   })
 })
+

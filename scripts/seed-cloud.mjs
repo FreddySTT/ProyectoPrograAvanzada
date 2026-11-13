@@ -3,16 +3,16 @@ import { getFirestore, doc, setDoc } from "firebase/firestore";
 import { createClient } from "@supabase/supabase-js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyClt7kY-8zo8fpu7clmjhVsOwpWsBNL8XA",
-  authDomain: "riqsi-rutas.firebaseapp.com",
-  projectId: "riqsi-rutas",
-  storageBucket: "riqsi-rutas.firebasestorage.app",
-  messagingSenderId: "328483840746",
-  appId: "1:328483840746:web:de2303e306e0bc86662d93",
+  apiKey: process.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "riqsi-rutas.firebaseapp.com",
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "riqsi-rutas",
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "riqsi-rutas.firebasestorage.app",
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: process.env.VITE_FIREBASE_APP_ID || "",
 };
 
-const SUPABASE_URL = "https://mgkxnplbcdxfuxdlcyzl.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1na3hucGxiY2R4ZnV4ZGxjeXpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3MjM2MzIsImV4cCI6MjEwODI5OTYzMn0.TG7xAbibrIzBf8jp_jO9vAVcH25vzdKi8KtQ4p-F4Dg";
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "https://mgkxnplbcdxfuxdlcyzl.supabase.co";
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || "";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
