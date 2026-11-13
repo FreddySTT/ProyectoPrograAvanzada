@@ -18,6 +18,9 @@ class DevelopmentConfig(Config):
 class TestingConfig(Config):
     TESTING = True
     ALLOW_DEV_ANON = True
+    # Deshabilitar Supabase en tests para usar solo PLACES_FALLBACK en memoria
+    SUPABASE_URL = ""
+    SUPABASE_KEY = ""
 
 class ProductionConfig(Config):
     DEBUG = False
