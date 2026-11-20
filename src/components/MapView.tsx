@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import type { PlaceItem } from "../types/auth";
-import { MAPBOX_TOKEN } from "../config/mapbox";
+
+// Fix Leaflet default icon paths broken by Vite bundling
+import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
+import iconUrl from "leaflet/dist/images/marker-icon.png";
+import shadowUrl from "leaflet/dist/images/marker-shadow.png";
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
 
 type FilterType = "todos" | "gastronomia" | "cultura" | "naturaleza" | "aventura";
 type TravelMode = "driving" | "walking";
@@ -18,40 +24,9 @@ interface UserLocation {
   lat: number;
 }
 
-// Cochabamba Coordinates: Plaza 14 de Septiembre [lng, lat]
-const DEFAULT_COCHABAMBA: [number, number] = [-66.1568, -17.3935];
-
-// Estilo libre de alta disponibilidad cuando no hay token de Mapbox configurado
-// Usamos ESRI ArcGIS World Street Map (100% libre, sin marca de agua y sin necesidad de API Key)
-const OSM_FALLBACK_STYLE: any = {
-  version: 8,
-  sources: {
-    "world-street-map": {
-      type: "raster",
-      tiles: [
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
-      ],
-      tileSize: 256,
-      attribution: "© Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, © OpenStreetMap contributors",
-      maxzoom: 19,
-    },
-  },
-  layers: [
-    {
-      id: "world-street-map-layer",
-      type: "raster",
-      source: "world-street-map",
-      minzoom: 0,
-      maxzoom: 19,
-    },
-  ],
-};
-
-// Si no hay token de Mapbox configurado, asignamos un identificador sintáctico para que
-// Mapbox GL JS v3 inicialice el renderizador de tiles libres de CARTO / OpenStreetMap sin bloquear el canvas.
-mapboxgl.accessToken =
-  MAPBOX_TOKEN ||
-  ["pk", "eyJ1IjoiYW5vbiIsImEiOiJjb2NoYWJhbWJhLTIwMjYifQ", "fallback_for_carto_tiles"].join(".");
+// Cochabamba – Plaza 14 de Septiembre [lat, lng] (Leaflet order)
+const DEFAULT_LAT = -17.3935;
+const DEFAULT_LNG = -66.1568;
 
 const filterButtons: { key: FilterType; label: string; color: string }[] = [
   { key: "todos", label: "Todos", color: "#0F172A" },
@@ -61,7 +36,7 @@ const filterButtons: { key: FilterType; label: string; color: string }[] = [
   { key: "aventura", label: "Aventura", color: "#0284C7" },
 ];
 
-// SVG icons (stroke currentColor) — same paths as the project's Icon component
+// SVG icons for category markers
 const CATEGORY_ICON_SVG: Record<string, string> = {
   gastronomia:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/><path d="M15 2v20"/><path d="M6 2v20"/><path d="M6 6h4"/></svg>',
@@ -82,11 +57,9 @@ const categoryIconSvg = (category: string) =>
 const speakEs = (text: string) => {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
   const synth = window.speechSynthesis;
-  // No cancel(): utterances queue so the greeting finishes before instructions
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "es-BO";
   utterance.rate = 1;
-  // Pick a Spanish voice when available (voices load async — getVoices() warms the list)
   const voices = synth.getVoices();
   const esVoice =
     voices.find((v) => v.lang.toLowerCase().startsWith("es")) ??
@@ -129,27 +102,56 @@ const getCategoryTheme = (category: string) => {
   }
 };
 
+/** Build a custom Leaflet DivIcon for a place marker */
+function buildLeafletIcon(place: PlaceItem, isSelected: boolean): L.DivIcon {
+  const theme = getCategoryTheme(place.category);
+  const size = isSelected ? 36 : 30;
+  const shadow = isSelected
+    ? `0 0 0 5px ${theme.color}45, 0 8px 18px rgba(0,0,0,.4)`
+    : "0 3px 8px rgba(0,0,0,.3)";
+  const html = `
+    <div style="
+      width:${size}px;height:${size}px;
+      background:${theme.color};
+      border:2.5px solid #fff;
+      border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      color:#fff;
+      box-shadow:${shadow};
+      transition:transform .15s ease;
+      cursor:pointer;
+    ">
+      ${categoryIconSvg(place.category)}
+    </div>`;
+  return L.divIcon({
+    html,
+    className: "",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -(size / 2) - 4],
+  });
+}
+
 export function MapView({ places, onBack, initialPlace }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<{ marker: mapboxgl.Marker; el: HTMLElement; place: PlaceItem }[]>([]);
-  const popupRef = useRef<mapboxgl.Popup | null>(null);
-  const geolocateRef = useRef<mapboxgl.GeolocateControl | null>(null);
-  const routeCoordsRef = useRef<[number, number][] | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<{ marker: L.Marker; place: PlaceItem }[]>([]);
+  const routeLayerRef = useRef<L.Polyline | null>(null);
+  const userMarkerRef = useRef<L.CircleMarker | null>(null);
+  const userLocRef = useRef<UserLocation | null>(null);
   const fetchRouteRef = useRef<
     ((destination: PlaceItem, mode?: TravelMode, origin?: UserLocation | null) => Promise<void>) | null
   >(null);
-  const userLocRef = useRef<UserLocation | null>(null);
+  const routeCoordsRef = useRef<[number, number][] | null>(null);
 
-  // Turn-by-turn navigation data
   interface NavStep {
-    dist: number; // meters along the route where this maneuver happens
+    dist: number;
     text: string;
     announced: boolean;
   }
   const navRef = useRef<{
     coords: [number, number][];
-    cum: number[]; // cumulative meters along coords
+    cum: number[];
     steps: NavStep[];
     arrived: boolean;
   } | null>(null);
@@ -170,90 +172,79 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
   const [mapReady, setMapReady] = useState(false);
   const [hideSkeleton, setHideSkeleton] = useState(false);
 
-  // ─── 1. Initialize Mapbox map ──────────────────────────────────────────────
+  // ─── 1. Initialize Leaflet map ──────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: MAPBOX_TOKEN ? "mapbox://styles/mapbox/streets-v12" : OSM_FALLBACK_STYLE,
-      center: DEFAULT_COCHABAMBA,
-      zoom: 12.4,
-      attributionControl: false,
+    const map = L.map(containerRef.current, {
+      center: [DEFAULT_LAT, DEFAULT_LNG],
+      zoom: 13,
+      zoomControl: false,
+      attributionControl: true,
     });
 
-    // En caso de que el token de Mapbox sea inválido, hacer fallback a OpenStreetMap sin bloquear
-    map.on("error", (e: any) => {
-      if (e?.error?.status === 401 || String(e?.error?.message || "").includes("token")) {
-        console.warn("[MapView] Token de Mapbox no válido o no configurado. Cambiando a OpenStreetMap.");
-        try {
-          map.setStyle(OSM_FALLBACK_STYLE);
-        } catch {}
-      }
-    });
+    // OpenStreetMap tiles — work in production without any API key or CORS issues
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+      subdomains: ["a", "b", "c"],
+    }).addTo(map);
 
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
-    map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
+    // Zoom control top-right
+    L.control.zoom({ position: "topright" }).addTo(map);
 
-    const geolocate = new mapboxgl.GeolocateControl({
-      trackUserLocation: true,
-      showUserLocation: true,
-      showAccuracyCircle: true,
-    });
-    geolocateRef.current = geolocate;
-    map.addControl(geolocate, "top-right");
+    mapRef.current = map;
 
-    map.on("load", () => {
-      ensureRouteLayers(map);
-      map.resize();
+    // Mark ready after tiles start loading
+    map.whenReady(() => {
       setMapReady(true);
-      window.setTimeout(() => setHideSkeleton(true), 500);
-      // Auto-start GPS tracking (real-time user location)
-      try {
-        geolocate.trigger();
-      } catch {
-        /* permission denied or unsupported — map still works centered */
-      }
+      window.setTimeout(() => setHideSkeleton(true), 400);
     });
 
-    // Safety fallback: never trap the user behind the skeleton
+    // Safety fallback
     const readyTimeout = window.setTimeout(() => {
-      ensureRouteLayers(map);
-      map.resize();
       setMapReady(true);
       setHideSkeleton(true);
     }, 2000);
-
-    map.on("geolocate", (e: any) => {
-      const { longitude, latitude } = e.coords;
-      setUserLocation({ lng: longitude, lat: latitude });
-      setIsLiveGps(true);
-    });
-
-    map.on("geolocateerror", () => setIsLiveGps(false));
-
-    mapRef.current = map;
 
     return () => {
       window.clearTimeout(readyTimeout);
       markersRef.current.forEach((m) => m.marker.remove());
       markersRef.current = [];
-      popupRef.current?.remove();
+      routeLayerRef.current?.remove();
+      userMarkerRef.current?.remove();
       stopSpeaking();
       map.remove();
       mapRef.current = null;
-      geolocateRef.current = null;
     };
   }, []);
 
-  // ─── 1b. Real-time user location (native Geolocation, independent of Mapbox) ──
+  // ─── 1b. Real-time GPS via browser Geolocation ───────────────────────────
   useEffect(() => {
     if (!navigator.geolocation) return;
 
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        setUserLocation({ lng: pos.coords.longitude, lat: pos.coords.latitude });
+        const loc = { lng: pos.coords.longitude, lat: pos.coords.latitude };
+        setUserLocation(loc);
         setIsLiveGps(true);
+
+        const map = mapRef.current;
+        if (!map) return;
+
+        // Update (or create) the user dot marker
+        if (userMarkerRef.current) {
+          userMarkerRef.current.setLatLng([loc.lat, loc.lng]);
+        } else {
+          userMarkerRef.current = L.circleMarker([loc.lat, loc.lng], {
+            radius: 10,
+            color: "#2563EB",
+            fillColor: "#3B82F6",
+            fillOpacity: 0.9,
+            weight: 3,
+          }).addTo(map);
+          userMarkerRef.current.bindTooltip("Tu posición", { permanent: false });
+        }
       },
       () => setIsLiveGps(false),
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
@@ -262,189 +253,77 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
-  // ─── 2. Route layers helper ───────────────────────────────────────────────
-  const ensureRouteLayers = (map: mapboxgl.Map) => {
-    if (!map.isStyleLoaded() || map.getSource("route")) return;
+  // ─── 2. Draw / update route polyline ─────────────────────────────────────
+  const paintRoute = useCallback(
+    (
+      coords: [number, number][],
+      distanceKm: number,
+      durationMin: number,
+      isFallback = false,
+      routeColor: string
+    ) => {
+      const map = mapRef.current;
+      if (!map) return;
 
-    // Insert route layers BELOW text labels but ABOVE roads/geometry.
-    // The first "symbol" layer in streets-v12 is an arrow icon, not a label —
-    // so we target the first symbol layer that actually renders text.
-    const styleLayers = map.getStyle().layers ?? [];
-    const labelLayer = styleLayers.find(
-      (l) => l.type === "symbol" && (l.layout as any)?.["text-field"]
-    );
-    const fallbackSymbol = styleLayers.find((l) => l.type === "symbol");
-    const beforeId = labelLayer?.id ?? fallbackSymbol?.id;
+      routeLayerRef.current?.remove();
+      // coords are [lng, lat] from Directions API → flip to [lat, lng] for Leaflet
+      const latLngs: [number, number][] = coords.map(([lng, lat]) => [lat, lng]);
 
-    map.addSource("route", {
-      type: "geojson",
-      data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [] } },
-    });
+      routeLayerRef.current = L.polyline(latLngs, {
+        color: routeColor,
+        weight: 5,
+        opacity: 0.85,
+        lineJoin: "round",
+        lineCap: "round",
+      }).addTo(map);
 
-    map.addLayer(
-      {
-        id: "route-casing",
-        type: "line",
-        source: "route",
-        layout: { "line-join": "round", "line-cap": "round" },
-        paint: {
-          "line-color": "#FFFFFF",
-          "line-width": 6,
-          "line-opacity": 0.9,
-        },
-      },
-      beforeId
-    );
+      routeCoordsRef.current = coords;
+      setRouteInfo({ distanceKm, durationMin, isFallback });
 
-    map.addLayer(
-      {
-        id: "route-line",
-        type: "line",
-        source: "route",
-        layout: { "line-join": "round", "line-cap": "round" },
-        paint: {
-          "line-color": ["get", "color"],
-          "line-width": 3.5,
-          "line-opacity": 0.9,
-        },
-      },
-      beforeId
-    );
-  };
+      // Fit map to show full route
+      map.fitBounds(latLngs as L.LatLngBoundsLiteral, {
+        padding: [80, 60],
+        maxZoom: 16,
+        animate: true,
+        duration: 1.2,
+      });
+    },
+    []
+  );
 
-  // ─── 3. Marker element (created once, styled in place → no jumping) ───────
-  // IMPORTANT: Mapbox positions the OUTER element via CSS transform. All visual
-  // styles/hover go on the INNER circle so transforms never fight the map.
-  const applyMarkerStyle = (el: HTMLElement, place: PlaceItem, isSelected: boolean) => {
-    const theme = getCategoryTheme(place.category);
-    const size = isSelected ? 36 : 30;
-    el.style.width = `${size}px`;
-    el.style.height = `${size}px`;
-    el.style.backgroundColor = theme.color;
-    el.style.boxShadow = isSelected
-      ? `0 0 0 5px ${theme.color}45, 0 8px 18px rgba(0,0,0,.4)`
-      : "0 3px 8px rgba(0,0,0,.3)";
-    const svg = el.querySelector("svg");
-    if (svg) {
-      svg.setAttribute("width", isSelected ? "15" : "13");
-      svg.setAttribute("height", isSelected ? "15" : "13");
-    }
-  };
-
-  const buildMarkerElement = (place: PlaceItem): { outer: HTMLElement; inner: HTMLElement } => {
-    const outer = document.createElement("div");
-    outer.style.cssText = "cursor:pointer;user-select:none;";
-
-    const inner = document.createElement("div");
-    inner.style.cssText = `
-      display:flex; align-items:center; justify-content:center;
-      border:2.5px solid #FFFFFF; border-radius:50%; color:#fff;
-      transition:transform .15s ease, width .15s ease, height .15s ease, box-shadow .15s ease;
-    `;
-    inner.innerHTML = categoryIconSvg(place.category);
-    inner.addEventListener("mouseenter", () => (inner.style.transform = "scale(1.12)"));
-    inner.addEventListener("mouseleave", () => (inner.style.transform = "scale(1)"));
-    applyMarkerStyle(inner, place, false);
-
-    outer.appendChild(inner);
-    return { outer, inner };
-  };
-
-  // ─── 4. Popup builder ─────────────────────────────────────────────────────
-  const openPlacePopup = (place: PlaceItem, map: mapboxgl.Map) => {
-    popupRef.current?.remove();
-
-    const [lng, lat] = place.coordinates!;
-    const loc = userLocRef.current;
-    const distKm = loc ? haversineKm(loc.lat, loc.lng, lat, lng) : null;
-
-    const theme = getCategoryTheme(place.category);
-    const el = document.createElement("div");
-    el.style.cssText = "min-width:230px;font-family:inherit;border-radius:12px;overflow:hidden;";
-    el.innerHTML = `
-      <div style="position:relative;height:96px;background:#0F172A;">
-        <img src="${place.image}" alt="${place.title}" style="width:100%;height:100%;object-fit:cover;display:block;" />
-        <span style="position:absolute;top:8px;right:8px;background:rgba(15,23,42,.85);color:#F8FAFC;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">${place.rating} ★</span>
-      </div>
-      <div style="padding:10px 12px 12px;background:#fff;">
-        <h4 style="margin:0 0 4px;font-size:14px;font-weight:800;color:#0F172A;line-height:1.25;">${place.title}</h4>
-        <p style="margin:0 0 8px;font-size:11px;color:#64748B;">${place.area}</p>
-        <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #E2E8F0;padding-top:8px;">
-          <span style="font-size:11px;color:#2563EB;font-weight:700;">${distKm !== null ? `A ${distKm} km` : ""}</span>
-          <span style="font-size:10px;background:${theme.color};color:#fff;padding:2px 7px;border-radius:6px;font-weight:700;">${place.tag || theme.label}</span>
-        </div>
-      </div>
-    `;
-
-    popupRef.current = new mapboxgl.Popup({ offset: 28, closeButton: false, maxWidth: "280px" })
-      .setLngLat([lng, lat])
-      .setDOMContent(el)
-      .addTo(map);
-  };
-
-  // ─── 5. Fetch & draw route (Mapbox Directions API) ────────────────────────
+  // ─── 3. Fetch route (OSRM public demo, free & no key needed) ─────────────
   const fetchAndDrawRoute = useCallback(
     async (destination: PlaceItem, mode: TravelMode = travelMode, origin?: UserLocation | null) => {
       const map = mapRef.current;
       if (!map || !destination.coordinates) return;
 
-      // If the style isn't ready yet, retry once it loads
-      if (!map.isStyleLoaded()) {
-        map.once("load", () => fetchAndDrawRoute(destination, mode, origin));
-        return;
-      }
-
-      // Origin: explicit > GPS > map center (so a route always draws)
       const center = map.getCenter();
       const originLoc = origin ?? userLocation ?? { lng: center.lng, lat: center.lat };
       setSelectedPlace(destination);
 
       const [destLng, destLat] = destination.coordinates;
-      const profile = mode === "walking" ? "walking" : "driving";
+      const profile = mode === "walking" ? "foot" : "driving";
       const routeColor = mode === "walking" ? "#059669" : "#2563EB";
 
       setIsLoadingRoute(true);
-      stopSpeaking(); // clear any stale queued utterances from a previous route
-      ensureRouteLayers(map);
+      stopSpeaking();
 
+      // OSRM public demo router — free, no API key, works in production
       const url =
-        `https://api.mapbox.com/directions/v5/mapbox/${profile}/` +
+        `https://router.project-osrm.org/route/v1/${profile}/` +
         `${originLoc.lng},${originLoc.lat};${destLng},${destLat}` +
-        `?geometries=geojson&overview=full&steps=true&language=es&access_token=${MAPBOX_TOKEN}`;
-
-      const paintRoute = (coords: [number, number][], distanceKm: number, durationMin: number, isFallback = false) => {
-        const source = map.getSource("route") as mapboxgl.GeoJSONSource | undefined;
-        if (source) {
-          source.setData({
-            type: "Feature",
-            properties: { color: routeColor },
-            geometry: { type: "LineString", coordinates: coords },
-          });
-        }
-        routeCoordsRef.current = coords;
-        setRouteInfo({ distanceKm, durationMin, isFallback });
-
-        const lons = coords.map((c) => c[0]);
-        const lats = coords.map((c) => c[1]);
-        map.fitBounds(
-          [
-            [Math.min(...lons), Math.min(...lats)],
-            [Math.max(...lons), Math.max(...lats)],
-          ],
-          { padding: { top: 90, bottom: 220, left: 60, right: 60 }, maxZoom: 16, duration: 1200 }
-        );
-      };
+        `?overview=full&geometries=geojson&steps=true`;
 
       try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`Directions ${res.status}`);
+        if (!res.ok) throw new Error(`OSRM ${res.status}`);
         const data = await res.json();
         const route = data.routes?.[0];
         if (!route) throw new Error("No route");
 
         const coords: [number, number][] = route.geometry.coordinates;
 
-        // ── Build turn-by-turn data (maneuver instructions along the route) ──
+        // Build cumulative distance for turn-by-turn
         const cum: number[] = [0];
         for (let i = 1; i < coords.length; i++) {
           cum.push(
@@ -468,12 +347,11 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
                 }
               });
             }
-            const text =
-              s.maneuver?.instruction?.trim() ||
-              (s.name ? `Continúa por ${s.name}` : "Continúa por la ruta");
+            const instr = s.maneuver?.type ?? "";
+            const name = s.name ?? "";
+            const text = name ? `${instr} por ${name}` : instr || "Continúa por la ruta";
             return { dist: cum[bestIdx] ?? 0, text, announced: false };
           })
-          // Keep the depart step (dist 0) — it is the first "head out" instruction
           .filter((s, i) => i === 0 || s.dist > 0);
 
         navRef.current = { coords, cum, steps: navSteps, arrived: false };
@@ -482,10 +360,12 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
         paintRoute(
           coords,
           Math.round((route.distance / 1000) * 10) / 10,
-          Math.max(1, Math.round(route.duration / 60))
+          Math.max(1, Math.round(route.duration / 60)),
+          false,
+          routeColor
         );
       } catch {
-        // Fallback: línea recta con distancia real (sin instrucciones de giro)
+        // Fallback: straight line
         navRef.current = null;
         setNavInstruction(null);
         const distKm = haversineKm(originLoc.lat, originLoc.lng, destLat, destLng);
@@ -497,20 +377,20 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
           ],
           distKm,
           estMin,
-          true
+          true,
+          routeColor
         );
       } finally {
         setIsLoadingRoute(false);
       }
     },
-    [userLocation, travelMode]
+    [userLocation, travelMode, paintRoute]
   );
 
-  // Keep latest callbacks/location in refs so marker click handlers never go stale
   fetchRouteRef.current = fetchAndDrawRoute;
   userLocRef.current = userLocation;
 
-  // ─── 6. Markers (created once per filter/data; selection updates style only) ──
+  // ─── 4. Markers (created when filter or places change) ───────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -524,66 +404,76 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
     filtered.forEach((place) => {
       if (!place.coordinates) return;
       const [lng, lat] = place.coordinates;
+      const isSelected = selectedPlace?.id === place.id;
+      const icon = buildLeafletIcon(place, isSelected);
 
-      const { outer, inner } = buildMarkerElement(place);
-      const marker = new mapboxgl.Marker({ element: outer, anchor: "center" })
-        .setLngLat([lng, lat])
-        .addTo(map);
+      const marker = L.marker([lat, lng], { icon }).addTo(map);
 
-      marker.getElement().addEventListener("click", () => {
+      // Build popup HTML
+      const loc = userLocRef.current;
+      const distKm = loc ? haversineKm(loc.lat, loc.lng, lat, lng) : null;
+      const theme = getCategoryTheme(place.category);
+
+      const popupHtml = `
+        <div style="min-width:200px;font-family:inherit;border-radius:12px;overflow:hidden;padding:0;">
+          <div style="position:relative;height:90px;background:#0F172A;">
+            <img src="${place.image}" alt="${place.title}" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.src='/assets/cochabamba-hero.jpg'" />
+            <span style="position:absolute;top:6px;right:6px;background:rgba(15,23,42,.85);color:#F8FAFC;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">${place.rating} ★</span>
+          </div>
+          <div style="padding:10px 12px 12px;background:#fff;">
+            <h4 style="margin:0 0 4px;font-size:14px;font-weight:800;color:#0F172A;line-height:1.25;">${place.title}</h4>
+            <p style="margin:0 0 8px;font-size:11px;color:#64748B;">${place.area}</p>
+            <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #E2E8F0;padding-top:8px;">
+              <span style="font-size:11px;color:#2563EB;font-weight:700;">${distKm !== null ? `A ${distKm} km` : ""}</span>
+              <span style="font-size:10px;background:${theme.color};color:#fff;padding:2px 7px;border-radius:6px;font-weight:700;">${place.tag || theme.label}</span>
+            </div>
+          </div>
+        </div>`;
+
+      marker.bindPopup(popupHtml, { maxWidth: 260, offset: [0, -8] });
+
+      marker.on("click", () => {
         setSelectedPlace(place);
-        openPlacePopup(place, map);
+        marker.openPopup();
         fetchRouteRef.current?.(place);
       });
 
-      markersRef.current.push({ marker, el: inner, place });
+      markersRef.current.push({ marker, place });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [places, activeFilter]);
 
-  // Update only the selected/unselected marker styles — no recreation, no jump
+  // Update marker icons when selection changes (no recreate)
   useEffect(() => {
-    markersRef.current.forEach(({ el, place }) => {
-      applyMarkerStyle(el, place, selectedPlace?.id === place.id);
+    markersRef.current.forEach(({ marker, place }) => {
+      marker.setIcon(buildLeafletIcon(place, selectedPlace?.id === place.id));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPlace?.id]);
 
-  // ─── 7. Initial place ─────────────────────────────────────────────────────
+  // ─── 5. Initial place ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!initialPlace?.coordinates || !mapRef.current) return;
     setSelectedPlace(initialPlace);
-    // Esperar a que el mapa esté listo para trazar
-    const map = mapRef.current;
-    const run = () => {
-      openPlacePopup(initialPlace, map);
-      fetchAndDrawRoute(initialPlace);
-    };
-    if (map.loaded()) run();
-    else map.once("load", run);
+    const run = () => fetchAndDrawRoute(initialPlace);
+    if (mapRef.current) run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPlace]);
 
-  // ─── 8. Clear route ───────────────────────────────────────────────────────
+  // ─── 6. Clear route ───────────────────────────────────────────────────────
   const clearRoute = useCallback(() => {
     setSelectedPlace(null);
     setRouteInfo(null);
     setNavigating(false);
     setNavInstruction(null);
     navRef.current = null;
-    stopSpeaking();
     routeCoordsRef.current = null;
-    popupRef.current?.remove();
-    const map = mapRef.current;
-    const source = map?.getSource("route") as mapboxgl.GeoJSONSource | undefined;
-    source?.setData({
-      type: "Feature",
-      properties: {},
-      geometry: { type: "LineString", coordinates: [] },
-    });
+    stopSpeaking();
+    routeLayerRef.current?.remove();
+    routeLayerRef.current = null;
   }, []);
 
-  // ─── 9. Auto-route to NEAREST place on first real-time GPS fix ────────────
+  // ─── 7. Auto-route to nearest place on first GPS fix ─────────────────────
   const autoRoutedRef = useRef(false);
   useEffect(() => {
     const map = mapRef.current;
@@ -604,48 +494,34 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
 
     if (nearest) {
       setSelectedPlace(nearest);
-      openPlacePopup(nearest, map);
       fetchRouteRef.current?.(nearest, travelMode, userLocation);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLocation]);
 
-  // ─── 10. Center on route ──────────────────────────────────────────────────
+  // ─── 8. Center route on map ───────────────────────────────────────────────
   const handleCenterRoute = () => {
     const map = mapRef.current;
-    const coords = routeCoordsRef.current;
-    if (!map || !coords || coords.length === 0) return;
-    const lons = coords.map((c) => c[0]);
-    const lats = coords.map((c) => c[1]);
-    map.fitBounds(
-      [
-        [Math.min(...lons), Math.min(...lats)],
-        [Math.max(...lons), Math.max(...lats)],
-      ],
-      { padding: { top: 90, bottom: 220, left: 60, right: 60 }, maxZoom: 16, duration: 1000 }
-    );
+    const layer = routeLayerRef.current;
+    if (!map || !layer) return;
+    map.fitBounds(layer.getBounds(), { padding: [80, 60], maxZoom: 16, animate: true });
   };
 
-  // ─── Derived UI data ──────────────────────────────────────────────────────
-  // ─── Keep user + destination framed while "navegando" ─────────────────────
-  // Frames BOTH points on every GPS update so the full route stays visible
-  // instead of zooming into the user and losing the trayecto off-screen.
+  // ─── 9. Keep user + destination framed while navigating ──────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!navigating || !userLocation || !map || !selectedPlace?.coordinates) return;
     const [dlng, dlat] = selectedPlace.coordinates;
-    const lons = [userLocation.lng, dlng];
-    const lats = [userLocation.lat, dlat];
     map.fitBounds(
       [
-        [Math.min(...lons), Math.min(...lats)],
-        [Math.max(...lons), Math.max(...lats)],
+        [userLocation.lat, userLocation.lng],
+        [dlat, dlng],
       ],
-      { padding: { top: 80, bottom: 230, left: 50, right: 50 }, maxZoom: 16, duration: 900 }
+      { padding: [80, 60], maxZoom: 16, animate: true }
     );
   }, [userLocation, navigating, selectedPlace?.id]);
 
-  // ─── Turn-by-turn voice guidance while navigating ─────────────────────────
+  // ─── 10. Turn-by-turn voice guidance ─────────────────────────────────────
   useEffect(() => {
     if (!navigating || !userLocation) {
       setNavInstruction(null);
@@ -657,7 +533,6 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
       return;
     }
 
-    // Progress = distance along route of the coord closest to the user
     let bestIdx = 0;
     let bestD = Infinity;
     nav.coords.forEach((c, i) => {
@@ -669,8 +544,6 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
     });
     const progress = nav.cum[bestIdx] ?? 0;
 
-    // Announce upcoming maneuvers ~200 m ahead (Google-style: "En X metros, ...")
-    // and mark passed ones so they never repeat.
     let next: NavStep | null = null;
     for (const step of nav.steps) {
       const remaining = step.dist - progress;
@@ -680,7 +553,7 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
           speakEs(`${distText}${step.text}`);
           step.announced = true;
         } else if (remaining <= -40) {
-          step.announced = true; // passed without announcing (GPS jump)
+          step.announced = true;
         } else {
           next = step;
           break;
@@ -688,7 +561,6 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
       }
     }
 
-    // Arrival announcement
     if (selectedPlace?.coordinates && !nav.arrived) {
       const [dlng, dlat] = selectedPlace.coordinates;
       if (haversineKm(userLocation.lat, userLocation.lng, dlat, dlng) < 0.06) {
@@ -699,20 +571,19 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
 
     if (next) {
       const remainingM = Math.max(0, Math.round(next.dist - progress));
-      setNavInstruction(
-        remainingM > 0 ? `En ${remainingM} m — ${next.text}` : next.text
-      );
+      setNavInstruction(remainingM > 0 ? `En ${remainingM} m — ${next.text}` : next.text);
     } else {
-      setNavInstruction(
-        selectedPlace ? `Dirígete a ${selectedPlace.title}` : null
-      );
+      setNavInstruction(selectedPlace ? `Dirígete a ${selectedPlace.title}` : null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLocation, navigating, selectedPlace?.id]);
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="relative min-h-screen bg-slate-50 font-sans overflow-hidden">
-      {/* Precision Aguayo hairline */}
+      {/* Aguayo hairline */}
       <div className="aguayo-strip h-1 w-full fixed top-0 left-0 z-50 shadow-xs" />
 
       {/* Top Header */}
@@ -732,25 +603,30 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
               Mapa Interactivo de Cochabamba
             </h1>
           </div>
+
+          {/* GPS status indicator */}
+          {isLiveGps && (
+            <div className="ml-auto flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="hidden sm:inline">GPS activo</span>
+            </div>
+          )}
         </div>
       </header>
 
       {/* Map Content Area */}
       <div className="relative h-[calc(100vh-64px)] w-full">
-        {/* Skeleton shimmer while the map style/tiles load */}
+        {/* Skeleton shimmer while map loads */}
         {!hideSkeleton && (
           <div
             className={`absolute inset-0 z-10 bg-slate-100 overflow-hidden ${mapReady ? "map-skeleton-fade" : ""}`}
             aria-hidden="true"
           >
-            {/* Fake filter pills row */}
             <div className="absolute top-5 left-1/2 -translate-x-1/2 flex gap-2">
               {[64, 92, 88, 96, 84].map((w, i) => (
                 <div key={i} className="map-skeleton-shimmer h-9 rounded-full" style={{ width: w }} />
               ))}
             </div>
-
-            {/* Fake place markers scattered like real POIs */}
             {[
               { top: "34%", left: "30%", size: 34 },
               { top: "46%", left: "52%", size: 30 },
@@ -766,8 +642,6 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
                 style={{ top: m.top, left: m.left, width: m.size, height: m.size }}
               />
             ))}
-
-            {/* Fake route card bottom-left */}
             <div className="absolute bottom-6 left-6 w-[320px] rounded-xl bg-white shadow-xl border border-slate-200 overflow-hidden">
               <div className="map-skeleton-shimmer h-20 w-full" />
               <div className="p-4 space-y-2.5">
@@ -776,8 +650,6 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
                 <div className="map-skeleton-shimmer h-9 w-full rounded-lg" />
               </div>
             </div>
-
-            {/* Loading label */}
             <div className="absolute bottom-6 right-6 flex items-center gap-2 rounded-full bg-slate-900/85 px-4 py-2 text-xs font-subtitle font-bold text-white shadow-lg">
               <span className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               <span>Cargando mapa de Cochabamba…</span>
@@ -792,9 +664,7 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
               filter.key === "todos"
                 ? places.filter((p) => p.coordinates).length
                 : places.filter((p) => p.category === filter.key && p.coordinates).length;
-
             const isActive = activeFilter === filter.key;
-
             return (
               <button
                 key={filter.key}
@@ -813,7 +683,7 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
                 />
                 <span>{filter.label}</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                  className={`text-[10px] px-1.5 rounded-full font-extrabold ${
                     isActive ? "bg-white/25 text-white" : "bg-slate-100 text-slate-500"
                   }`}
                 >
@@ -828,7 +698,7 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
         {selectedPlace && (
           <div className="absolute bottom-5 left-4 right-4 sm:left-6 sm:right-auto sm:w-[440px] z-30 animate-in fade-in slide-in-from-bottom duration-300">
             <div className="rounded-xl bg-white shadow-2xl border border-slate-200/90 overflow-hidden">
-              {/* Header bar with Route info */}
+              {/* Header bar */}
               <div className="bg-slate-900 text-white p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
@@ -843,7 +713,7 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
                     </div>
                   </div>
 
-                  {/* Mode switcher (Driving / Walking) */}
+                  {/* Mode switcher */}
                   <div className="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-700 shrink-0">
                     <button
                       type="button"
@@ -880,7 +750,7 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
                   </div>
                 </div>
 
-                {/* Distance & Duration Badge */}
+                {/* Distance & Duration */}
                 {isLoadingRoute ? (
                   <div className="mt-3 flex items-center gap-2 bg-slate-800/80 rounded-lg px-3.5 py-2 text-xs text-slate-300">
                     <span className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -903,7 +773,6 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
 
               {/* Destination Details */}
               <div className="p-4 bg-white space-y-3">
-                {/* Next turn-by-turn instruction (only while navigating) */}
                 {navigating && navInstruction && (
                   <div className="flex items-center gap-2.5 rounded-xl bg-emerald-50 border border-emerald-200/80 px-3 py-2.5">
                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-600 text-white">
@@ -925,11 +794,10 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
                     src={selectedPlace.image}
                     alt={selectedPlace.title}
                     className="h-16 w-16 rounded-lg object-cover shrink-0 border border-slate-200"
+                    onError={(e) => { (e.target as HTMLImageElement).src = "/assets/cochabamba-hero.jpg"; }}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-slate-500 font-medium truncate">
-                      {selectedPlace.area}
-                    </p>
+                    <p className="text-xs text-slate-500 font-medium truncate">{selectedPlace.area}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="rounded-md bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold border border-slate-200">
                         {selectedPlace.tag}
@@ -941,12 +809,11 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
                   </div>
                 </div>
 
-                {/* Bottom Action Buttons */}
+                {/* Action Buttons */}
                 <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={() => {
-                      // Wake up speech synthesis inside the user gesture so voice works
                       speakEs(
                         `Navegación iniciada${selectedPlace ? ` hacia ${selectedPlace.title}` : ""}`
                       );
@@ -977,8 +844,8 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
           </div>
         )}
 
-        {/* Map Container Element */}
-        <div ref={containerRef} className="h-full w-full z-0" />
+        {/* Map Container */}
+        <div ref={containerRef} className="h-full w-full z-0" style={{ zIndex: 0 }} />
       </div>
     </div>
   );

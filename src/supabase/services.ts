@@ -165,6 +165,10 @@ export async function getLocalPlaces(): Promise<PlaceItem[]> {
       modified = true;
     } else {
       const cur = storedMap.get(initP.id)!;
+      if (initP.image && cur.image !== initP.image && !cur.image?.startsWith("data:") && !cur.image?.startsWith("http")) {
+        cur.image = initP.image;
+        modified = true;
+      }
       if (initP.coordinates && (!cur.coordinates || cur.coordinates[0] !== initP.coordinates[0])) {
         cur.coordinates = initP.coordinates;
         modified = true;

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Icon } from "../Icon/Icon";
 
 interface ZoomImageProps {
@@ -24,6 +24,15 @@ export const ZoomImage: React.FC<ZoomImageProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [origin, setOrigin] = useState({ x: 50, y: 50 });
+  const [imgSrc, setImgSrc] = useState(src || "/assets/cochabamba-hero.jpg");
+
+  useEffect(() => {
+    setImgSrc(src || "/assets/cochabamba-hero.jpg");
+  }, [src]);
+
+  const handleImgError = useCallback(() => {
+    setImgSrc("/assets/cochabamba-hero.jpg");
+  }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
@@ -62,8 +71,9 @@ export const ZoomImage: React.FC<ZoomImageProps> = ({
     >
       {/* Dynamic Cursor Magnifier Zoom Image */}
       <img
-        src={src}
+        src={imgSrc}
         alt={alt}
+        onError={handleImgError}
         className={`${className} will-change-transform`}
         style={{
           transformOrigin: `${origin.x}% ${origin.y}%`,
