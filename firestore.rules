@@ -1,33 +1,328 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Perfiles de usuario
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users/{userId}
+    // Document ID: Firebase Auth UID
+    // Fields:
+    //   - uid: string (required, 1-128 chars, immutable on update)
+    //   - name: string (optional, 1-100 chars)
+    //   - email: string (required, 3-100 chars, valid email format)
+    //   - role: string (required, enum: 'normal', 'editor', 'admin')
+    //   - status: string (optional, enum: 'active', 'suspended')
+    //   - username: string (optional, 1-50 chars)
+    //   - avatar: string (optional, 1-500 chars)
+    //   - createdAt: timestamp | string (optional, immutable)
+    //   - lastLogin: timestamp | string (optional)
+    //
+    // Collection: places/{placeId}
+    // Document ID: String slug or unique place ID
+    // Fields:
+    //   - id: string (required, 1-100 chars, immutable)
+    //   - title: string (required, 1-150 chars)
+    //   - area: string (optional, 1-100 chars)
+    //   - tag: string (optional, 1-50 chars)
+    //   - category: string (required, enum: 'cultura', 'naturaleza', 'gastronomia', 'aventura')
+    //   - image: string (optional, 1-1000 chars)
+    //   - rating: string (optional, 1-10 chars)
+    //   - time: string (optional, 1-50 chars)
+    //   - featured: bool (optional)
+    //   - visible: bool (optional)
+    //   - coordinates: list (optional, max 2 numbers)
+    //   - precio: number (optional, >= 0)
+    //   - precioUsd: number (optional, >= 0)
+    //   - precioDetalle: string (optional, 1-200 chars)
+    //   - horarioVisita: string (optional, 1-200 chars)
+    //   - descripcionItems: list (optional, max 20 strings)
+    //   - consejo: string (optional, 1-500 chars)
+    //   - datoHistorico: string (optional, 1-500 chars)
+    //   - badges: list (optional, max 10 strings)
+    //   - createdAt: timestamp | string (optional, immutable)
+    //   - updatedAt: timestamp | string (optional)
+    //   - createdBy: string (optional, 1-128 chars, immutable)
+    //
+    // Collection: announcements/{announcementId}
+    // Document ID: Announcement ID (e.g. 'global-banner-1')
+    // Fields:
+    //   - id: string (optional, 1-100 chars)
+    //   - active: bool (required)
+    //   - badge: string (required, 1-50 chars)
+    //   - message: string (required, 1-500 chars)
+    //   - linkText: string (optional, 1-100 chars)
+    //   - linkUrl: string (optional, 1-500 chars)
+    //   - updatedAt: timestamp | string (optional)
+    //
+    // Collection: bookings/{bookingId}
+    // Document ID: Booking ID
+    // Fields:
+    //   - id: string (required, 1-100 chars, immutable)
+    //   - userId: string (optional, 1-128 chars, owner UID, immutable)
+    //   - user_id: string (optional, 1-128 chars, owner UID, immutable)
+    //   - placeId: string (optional, 1-100 chars)
+    //   - placeTitle: string (optional, 1-150 chars)
+    //   - clientName: string (optional, 1-100 chars)
+    //   - clientEmail: string (optional, 3-100 chars)
+    //   - clientPhone: string (optional, 1-30 chars)
+    //   - clientCI: string (optional, 1-30 chars)
+    //   - date: string (optional, 1-50 chars)
+    //   - tickets: number (optional, >= 0)
+    //   - totalBs: number (optional, >= 0)
+    //   - totalUsd: number (optional, >= 0)
+    //   - paymentMethod: string (optional, 1-50 chars)
+    //   - status: string (optional, 1-50 chars)
+    //   - created_at: timestamp | string (optional, immutable)
+    //   - createdAt: timestamp | string (optional, immutable)
+    //   - bookingCode: string (optional, 1-50 chars)
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Role-based authorization: check token custom claims or users collection document
+    function isAdmin() {
+      return isAuthenticated() &&
+        (
+          request.auth.token.get('role', '') == 'admin' ||
+          request.auth.token.get('admin', false) == true ||
+          (
+            exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin'
+          )
+        );
+    }
+
+    function hasRequiredFields(data, fields) {
+      return data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(data, fields) {
+      return data.keys().hasOnly(fields);
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    function isValidOptionalString(data, field, minLen, maxLen) {
+      return !(field in data) ||
+        (data[field] is string && data[field].size() >= minLen && data[field].size() <= maxLen);
+    }
+
+    function isValidOptionalNumber(data, field, minVal) {
+      return !(field in data) || (data[field] is number && data[field] >= minVal);
+    }
+
+    function isValidOptionalBool(data, field) {
+      return !(field in data) || (data[field] is bool);
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.size() >= 3 &&
+        email.size() <= 100 &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidTimestampOrString(val) {
+      return val is timestamp || (val is string && val.size() <= 50);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      let allowed = ['uid', 'name', 'email', 'role', 'status', 'createdAt', 'lastLogin', 'avatar', 'username'];
+      return hasOnlyAllowedFields(data, allowed) &&
+        hasRequiredFields(data, ['uid', 'email', 'role']) &&
+        data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+        isValidEmail(data.email) &&
+        data.role in ['normal', 'editor', 'admin'] &&
+        isValidOptionalString(data, 'name', 1, 100) &&
+        isValidOptionalString(data, 'username', 1, 50) &&
+        isValidOptionalString(data, 'avatar', 1, 500) &&
+        (!( 'status' in data ) || data.status in ['active', 'suspended']) &&
+        (!( 'createdAt' in data ) || isValidTimestampOrString(data.createdAt)) &&
+        (!( 'lastLogin' in data ) || isValidTimestampOrString(data.lastLogin));
+    }
+
+    function isValidPlace(data) {
+      let allowed = [
+        'id', 'title', 'area', 'tag', 'category', 'image', 'rating', 'time',
+        'featured', 'visible', 'coordinates', 'precio', 'precioUsd', 'precioDetalle',
+        'horarioVisita', 'descripcionItems', 'consejo', 'datoHistorico', 'badges',
+        'createdAt', 'updatedAt', 'createdBy'
+      ];
+      return hasOnlyAllowedFields(data, allowed) &&
+        hasRequiredFields(data, ['id', 'title', 'category']) &&
+        data.id is string && data.id.size() >= 1 && data.id.size() <= 100 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 150 &&
+        data.category in ['cultura', 'naturaleza', 'gastronomia', 'aventura'] &&
+        isValidOptionalString(data, 'area', 1, 100) &&
+        isValidOptionalString(data, 'tag', 1, 50) &&
+        isValidOptionalString(data, 'image', 1, 1000) &&
+        isValidOptionalString(data, 'rating', 1, 10) &&
+        isValidOptionalString(data, 'time', 1, 50) &&
+        isValidOptionalBool(data, 'featured') &&
+        isValidOptionalBool(data, 'visible') &&
+        (!( 'coordinates' in data ) || (data.coordinates is list && data.coordinates.size() <= 2)) &&
+        isValidOptionalNumber(data, 'precio', 0) &&
+        isValidOptionalNumber(data, 'precioUsd', 0) &&
+        isValidOptionalString(data, 'precioDetalle', 1, 200) &&
+        isValidOptionalString(data, 'horarioVisita', 1, 200) &&
+        (!( 'descripcionItems' in data ) || (data.descripcionItems is list && data.descripcionItems.size() <= 20)) &&
+        isValidOptionalString(data, 'consejo', 1, 500) &&
+        isValidOptionalString(data, 'datoHistorico', 1, 500) &&
+        (!( 'badges' in data ) || (data.badges is list && data.badges.size() <= 10)) &&
+        (!( 'createdAt' in data ) || isValidTimestampOrString(data.createdAt)) &&
+        (!( 'updatedAt' in data ) || isValidTimestampOrString(data.updatedAt)) &&
+        isValidOptionalString(data, 'createdBy', 1, 128);
+    }
+
+    function isValidAnnouncement(data) {
+      let allowed = ['id', 'active', 'badge', 'message', 'linkText', 'linkUrl', 'updatedAt'];
+      return hasOnlyAllowedFields(data, allowed) &&
+        hasRequiredFields(data, ['active', 'badge', 'message']) &&
+        data.active is bool &&
+        data.badge is string && data.badge.size() >= 1 && data.badge.size() <= 50 &&
+        data.message is string && data.message.size() >= 1 && data.message.size() <= 500 &&
+        isValidOptionalString(data, 'id', 1, 100) &&
+        isValidOptionalString(data, 'linkText', 1, 100) &&
+        isValidOptionalString(data, 'linkUrl', 1, 500) &&
+        (!( 'updatedAt' in data ) || isValidTimestampOrString(data.updatedAt));
+    }
+
+    function isValidBooking(data) {
+      let allowed = [
+        'id', 'userId', 'user_id', 'placeId', 'placeTitle', 'clientName',
+        'clientEmail', 'clientPhone', 'clientCI', 'date', 'tickets',
+        'totalBs', 'totalUsd', 'paymentMethod', 'status', 'created_at',
+        'createdAt', 'bookingCode'
+      ];
+      return hasOnlyAllowedFields(data, allowed) &&
+        hasRequiredFields(data, ['id']) &&
+        data.id is string && data.id.size() >= 1 && data.id.size() <= 100 &&
+        isValidOptionalString(data, 'userId', 1, 128) &&
+        isValidOptionalString(data, 'user_id', 1, 128) &&
+        isValidOptionalString(data, 'placeId', 1, 100) &&
+        isValidOptionalString(data, 'placeTitle', 1, 150) &&
+        isValidOptionalString(data, 'clientName', 1, 100) &&
+        (!( 'clientEmail' in data ) || isValidEmail(data.clientEmail)) &&
+        isValidOptionalString(data, 'clientPhone', 1, 30) &&
+        isValidOptionalString(data, 'clientCI', 1, 30) &&
+        isValidOptionalString(data, 'date', 1, 50) &&
+        isValidOptionalNumber(data, 'tickets', 0) &&
+        isValidOptionalNumber(data, 'totalBs', 0) &&
+        isValidOptionalNumber(data, 'totalUsd', 0) &&
+        isValidOptionalString(data, 'paymentMethod', 1, 50) &&
+        isValidOptionalString(data, 'status', 1, 50) &&
+        isValidOptionalString(data, 'bookingCode', 1, 50) &&
+        (!( 'created_at' in data ) || isValidTimestampOrString(data.created_at)) &&
+        (!( 'createdAt' in data ) || isValidTimestampOrString(data.createdAt));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // 1. User Profiles: /users/{userId}
+    // Users can read and update their own document; admins also have management privileges.
+    // Privilege escalation is prevented: users cannot elevate their own role to admin.
     match /users/{userId} {
-      allow read, write: if true;
+      allow read: if isOwner(userId) || isAdmin();
+
+      allow create: if isOwner(userId) &&
+        isValidUser(request.resource.data) &&
+        request.resource.data.uid == userId &&
+        (request.resource.data.role == 'normal' || isAdmin());
+
+      allow update: if (isOwner(userId) || isAdmin()) &&
+        isValidUser(request.resource.data) &&
+        request.resource.data.uid == resource.data.uid &&
+        areImmutableFieldsUnchanged(['uid']) &&
+        ((!('createdAt' in resource.data)) || areImmutableFieldsUnchanged(['createdAt'])) &&
+        (request.resource.data.role == resource.data.role || isAdmin());
+
+      allow delete: if isAdmin();
     }
 
-    match /users/{userId}/{document=**} {
-      allow read, write: if true;
-    }
-
-    // Tareas / Notas personales
-    match /todos/{todoId} {
-      allow read, write: if true;
-    }
-
-    // Destinos turísticos: lectura y escritura habilitadas para sincronización
+    // 2. Tourist Destinations: /places/{placeId}
+    // Public read for tourists; write restricted to administrators.
     match /places/{placeId} {
-      allow read, write: if true;
+      allow read: if true;
+
+      allow create: if isAdmin() &&
+        isValidPlace(request.resource.data) &&
+        request.resource.data.id == placeId;
+
+      allow update: if isAdmin() &&
+        isValidPlace(request.resource.data) &&
+        areImmutableFieldsUnchanged(['id', 'createdAt', 'createdBy']);
+
+      allow delete: if isAdmin();
     }
 
-    // Anuncios y banners oficiales
+    // 3. Announcements & Official Banners: /announcements/{announcementId}
+    // Public read; write restricted to administrators.
     match /announcements/{announcementId} {
-      allow read, write: if true;
+      allow read: if true;
+
+      allow create: if isAdmin() && isValidAnnouncement(request.resource.data);
+
+      allow update: if isAdmin() &&
+        isValidAnnouncement(request.resource.data) &&
+        areImmutableFieldsUnchanged(['id']);
+
+      allow delete: if isAdmin();
     }
 
-    // Reservas de experiencias turísticas
+    // 4. Tour Bookings: /bookings/{bookingId}
+    // Authenticated users can create bookings.
+    // Read and update restricted to the booking owner (request.auth.uid == userId) or admins.
     match /bookings/{bookingId} {
-      allow read, write: if true;
+      allow read: if isAuthenticated() &&
+        (
+          resource.data.get('userId', '') == request.auth.uid ||
+          resource.data.get('user_id', '') == request.auth.uid ||
+          isAdmin()
+        );
+
+      allow create: if isAuthenticated() &&
+        isValidBooking(request.resource.data) &&
+        (
+          request.resource.data.get('userId', request.auth.uid) == request.auth.uid ||
+          request.resource.data.get('user_id', request.auth.uid) == request.auth.uid ||
+          isAdmin()
+        );
+
+      allow update: if isAuthenticated() &&
+        (
+          resource.data.get('userId', '') == request.auth.uid ||
+          resource.data.get('user_id', '') == request.auth.uid ||
+          isAdmin()
+        ) &&
+        isValidBooking(request.resource.data) &&
+        areImmutableFieldsUnchanged(['id', 'userId', 'user_id', 'created_at', 'createdAt']);
+
+      allow delete: if isAdmin();
+    }
+
+    // 5. Default Deny: All other collections are completely inaccessible.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

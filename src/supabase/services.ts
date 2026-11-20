@@ -58,9 +58,10 @@ export async function fetchPlaces(): Promise<PlaceItem[]> {
           tag: d.tag,
           category: d.category,
           image:
-            (d.image && (d.image.startsWith("http") || d.image.startsWith("data:") || d.image.startsWith("/assets")))
+            (INITIAL_PLACES.find((p) => p.id === d.id)?.image) ||
+            (d.image && (d.image.startsWith("http") || d.image.startsWith("data:") || d.image.startsWith("/assets"))
               ? d.image
-              : (INITIAL_PLACES.find((p) => p.id === d.id)?.image || d.image),
+              : "/assets/cochabamba-hero.jpg"),
           rating: d.rating || "4.8",
           time: d.time,
           featured: d.featured,

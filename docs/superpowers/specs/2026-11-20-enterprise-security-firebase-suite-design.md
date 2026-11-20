@@ -69,3 +69,4 @@ Para endpoints de modificación (`POST /api/places`, `PUT /api/places/<id>`, `DE
 
 ### C. Firebase Cloud Storage
 - Endpoint/utilidad robusta para subir fotos de atractivos turísticos con verificación de formato (JPEG/PNG/WebP) y límite de 5 MB.
+

@@ -22,3 +22,4 @@ def test_recomendar_ruta_ia_default_params(client):
     data = resp.get_json()
     assert data["ok"] is True
     assert "resumen" in data["data"]
+

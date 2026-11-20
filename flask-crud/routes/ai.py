@@ -123,3 +123,4 @@ def recomendar_ruta():
         "origen": "riqsi-ai-logic-local",
         "data": resultado
     })
+

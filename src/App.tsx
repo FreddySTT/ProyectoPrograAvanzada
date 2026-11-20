@@ -31,6 +31,7 @@ import { ImageZoomModal, type ZoomModalData } from "./components/molecules/Image
 import { PaymentModal } from "./components/organisms/PaymentModal/PaymentModal";
 import { PlaceDetailModal } from "./components/molecules/PlaceDetailModal/PlaceDetailModal";
 import { AiRouteAdvisorModal } from "./components/molecules/AiRouteAdvisorModal/AiRouteAdvisorModal";
+import { CloudServicesHubModal } from "./components/molecules/CloudServicesHubModal/CloudServicesHubModal";
 import { subscribeToRealtimeAlerts, type LiveLlajtaAlert } from "./firebase/services";
 import { ZoomImage } from "./components/atoms/ZoomImage/ZoomImage";
 import { MapView } from "./components/MapView";
@@ -435,6 +436,7 @@ function MainApp() {
 
   // Firebase AI Logic & Realtime Database States
   const [isAiAdvisorOpen, setIsAiAdvisorOpen] = useState(false);
+  const [isCloudHubOpen, setIsCloudHubOpen] = useState(false);
   const [liveRtdbAlert, setLiveRtdbAlert] = useState<LiveLlajtaAlert | null>(null);
 
   // Load persisted data
@@ -705,6 +707,7 @@ function MainApp() {
         onOpenEditAnnouncement={() => setIsAdminAnnouncementModalOpen(true)}
         onOpenPayReservation={() => openPaymentModal()}
         onOpenMap={() => { setMapInitialPlace(null); setShowMap(true); }}
+        onOpenCloudHub={() => setIsCloudHubOpen(true)}
       />
 
       {/* ── Firebase Realtime Database Live Alert Banner ── */}
@@ -939,6 +942,13 @@ function MainApp() {
           setShowMap(true);
           window.location.hash = "#mapa";
         }}
+      />
+
+      {/* ── Cloud Services Hub Modal (Firebase & Supabase Verification) ── */}
+      <CloudServicesHubModal
+        isOpen={isCloudHubOpen}
+        onClose={() => setIsCloudHubOpen(false)}
+        onNotify={notify}
       />
 
       {/* ── Toast Notification ── */}

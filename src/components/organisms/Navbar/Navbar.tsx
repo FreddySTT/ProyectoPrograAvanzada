@@ -17,6 +17,7 @@ interface NavbarProps {
   onOpenEditAnnouncement?: () => void;
   onOpenPayReservation?: () => void;
   onOpenMap?: () => void;
+  onOpenCloudHub?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -33,6 +34,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenEditAnnouncement,
   onOpenPayReservation,
   onOpenMap,
+  onOpenCloudHub,
 }) => {
   const [mobileMenu, setMobileMenu] = useState<boolean>(false);
   const [exploreDropdownOpen, setExploreDropdownOpen] = useState<boolean>(false);
@@ -250,6 +252,34 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </p>
                     </div>
                   </button>
+
+                  {onOpenCloudHub && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenCloudHub();
+                        setExploreDropdownOpen(false);
+                      }}
+                      className="w-full flex items-start gap-3 p-2.5 rounded-lg text-left hover:bg-slate-50 transition cursor-pointer group"
+                    >
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-sky-50 text-sky-700 border border-sky-100 group-hover:bg-sky-600 group-hover:text-white transition">
+                        <span>☁️</span>
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="font-subtitle text-xs font-bold text-slate-900 group-hover:text-sky-700 transition">
+                            Hub Cloud & Auth
+                          </p>
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-sky-700 bg-sky-50 px-1.5 py-0.2 rounded-sm border border-sky-200">
+                            Firebase & Supabase
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                          Verificación de Auth, Firestore RLS y Gemini
+                        </p>
+                      </div>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
