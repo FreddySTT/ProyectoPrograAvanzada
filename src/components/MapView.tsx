@@ -183,32 +183,38 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
       attributionControl: true,
     });
 
-    // OpenStreetMap tiles — work in production without any API key or CORS issues
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-      subdomains: ["a", "b", "c"],
-    }).addTo(map);
+    // ESRI ArcGIS World Street Map: 100% público, alta resolución, sin bloqueos de CORS ni restricciones de Referer
+    L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+      {
+        attribution:
+          "© Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), NGCC, © OpenStreetMap contributors",
+        maxZoom: 19,
+      }
+    ).addTo(map);
 
     // Zoom control top-right
     L.control.zoom({ position: "topright" }).addTo(map);
 
     mapRef.current = map;
 
-    // Mark ready after tiles start loading
-    map.whenReady(() => {
-      setMapReady(true);
-      window.setTimeout(() => setHideSkeleton(true), 400);
-    });
-
-    // Safety fallback
-    const readyTimeout = window.setTimeout(() => {
+    // Forzar recalculo de dimensiones del mapa en varios intervalos para que Leaflet renderice todas las tiles
+    const t1 = window.setTimeout(() => map.invalidateSize(), 100);
+    const t2 = window.setTimeout(() => map.invalidateSize(), 300);
+    const t3 = window.setTimeout(() => {
+      map.invalidateSize();
       setMapReady(true);
       setHideSkeleton(true);
-    }, 2000);
+    }, 600);
+
+    const onResize = () => map.invalidateSize();
+    window.addEventListener("resize", onResize);
 
     return () => {
-      window.clearTimeout(readyTimeout);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+      window.removeEventListener("resize", onResize);
       markersRef.current.forEach((m) => m.marker.remove());
       markersRef.current = [];
       routeLayerRef.current?.remove();
@@ -845,7 +851,11 @@ export function MapView({ places, onBack, initialPlace }: MapViewProps) {
         )}
 
         {/* Map Container */}
-        <div ref={containerRef} className="h-full w-full z-0" style={{ zIndex: 0 }} />
+        <div
+          ref={containerRef}
+          className="h-full w-full z-0"
+          style={{ zIndex: 0, minHeight: "100%", width: "100%", height: "100%" }}
+        />
       </div>
     </div>
   );

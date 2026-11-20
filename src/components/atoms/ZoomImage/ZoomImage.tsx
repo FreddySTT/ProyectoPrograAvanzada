@@ -12,6 +12,9 @@ interface ZoomImageProps {
   zoomScale?: number;
 }
 
+const FALLBACK_HERO = "/assets/cochabamba-hero.jpg";
+const FALLBACK_SVG = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'%3E%3Crect fill='%230F172A' width='600' height='400'/%3E%3Cpath fill='%23BE123C' d='M0 340l140-180 100 100 130-150 230 230H0z' opacity='0.8'/%3E%3Cpath fill='%23F4C430' d='M160 400l110-120 90 90 120-130 120 160H160z' opacity='0.6'/%3E%3Ccircle cx='480' cy='110' r='36' fill='%23F59E0B' opacity='0.9'/%3E%3Ctext x='300' y='365' font-family='sans-serif' font-size='22' font-weight='800' fill='%23FFFFFF' text-anchor='middle'%3ERiqsi Rutas Â· Cochabamba%3C/text%3E%3C/svg%3E";
+
 export const ZoomImage: React.FC<ZoomImageProps> = ({
   src,
   alt,
@@ -24,15 +27,22 @@ export const ZoomImage: React.FC<ZoomImageProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [origin, setOrigin] = useState({ x: 50, y: 50 });
-  const [imgSrc, setImgSrc] = useState(src || "/assets/cochabamba-hero.jpg");
+  const [imgSrc, setImgSrc] = useState(src || FALLBACK_HERO);
+  const [hasErrorOnce, setHasErrorOnce] = useState(false);
 
   useEffect(() => {
-    setImgSrc(src || "/assets/cochabamba-hero.jpg");
+    setImgSrc(src || FALLBACK_HERO);
+    setHasErrorOnce(false);
   }, [src]);
 
   const handleImgError = useCallback(() => {
-    setImgSrc("/assets/cochabamba-hero.jpg");
-  }, []);
+    if (!hasErrorOnce) {
+      setHasErrorOnce(true);
+      setImgSrc(FALLBACK_HERO);
+    } else {
+      setImgSrc(FALLBACK_SVG);
+    }
+  }, [hasErrorOnce]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;

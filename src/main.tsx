@@ -3,20 +3,17 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
 
-// BLINDAJE DE SEGURIDAD ZERO-STORAGE: Destruir de inmediato cualquier residuo
-if (typeof window !== 'undefined') {
+// Limpieza de caches de Service Worker desactualizados
+if (typeof window !== 'undefined' && 'caches' in window) {
   try {
-    if (window.localStorage) {
-      window.localStorage.clear();
-      window.localStorage.setItem = () => {};
-    }
-    if (window.sessionStorage) {
-      window.sessionStorage.clear();
-      window.sessionStorage.setItem = () => {};
-    }
-  } catch (e) {
-    console.warn("Storage wipe on init:", e);
-  }
+    caches.keys().then((names) => {
+      names.forEach((name) => {
+        if (name !== 'riqsi-rutas-v4' && name !== 'riqsi-api-v4') {
+          caches.delete(name);
+        }
+      });
+    });
+  } catch {}
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -26,11 +23,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 )
 
 // REGISTRO DE SERVICE WORKER PWA (Offline & Cache)
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')
       .then((reg) => {
+        // Forzar actualización inmediata para evitar quedarse en versiones viejas
+        reg.update();
         console.log('✅ ServiceWorker PWA registrado con éxito:', reg.scope);
       })
       .catch((err) => {

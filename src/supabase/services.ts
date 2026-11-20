@@ -51,38 +51,43 @@ export async function fetchPlaces(): Promise<PlaceItem[]> {
 
       if (!error && data && data.length > 0) {
         // Map database columns if snake_case
-        const mapped: PlaceItem[] = data.map((d: any) => ({
-          id: d.id,
-          title: d.title,
-          area: d.area,
-          tag: d.tag,
-          category: d.category,
-          image:
-            (INITIAL_PLACES.find((p) => p.id === d.id)?.image) ||
-            (d.image && (d.image.startsWith("http") || d.image.startsWith("data:") || d.image.startsWith("/assets"))
-              ? d.image
-              : "/assets/cochabamba-hero.jpg"),
-          rating: d.rating || "4.8",
-          time: d.time,
-          featured: d.featured,
-          visible: d.visible,
-          coordinates: Array.isArray(d.coordinates)
-            ? d.coordinates
-            : d.coordinates && typeof d.coordinates === "object" && "lng" in d.coordinates
-              ? [d.coordinates.lng, d.coordinates.lat]
-              : INITIAL_PLACES.find((p) => p.id === d.id)?.coordinates,
-          createdAt: d.created_at || d.createdAt,
-          updatedAt: d.updated_at || d.updatedAt,
-          createdBy: d.created_by || d.createdBy,
-          precio: d.precio !== undefined ? Number(d.precio) : undefined,
-          precioUsd: (d.precio_usd ?? d.precioUsd) !== undefined ? Number(d.precio_usd ?? d.precioUsd) : undefined,
-          precioDetalle: d.precio_detalle || d.precioDetalle,
-          horarioVisita: d.horario_visita || d.horarioVisita,
-          descripcionItems: d.descripcion_items || d.descripcionItems,
-          consejo: d.consejo,
-          datoHistorico: d.dato_historico || d.datoHistorico,
-          badges: d.badges,
-        }));
+        const mapped: PlaceItem[] = data.map((d: any) => {
+          const matchingInit = INITIAL_PLACES.find(
+            (p) => p.id === d.id || p.title.toLowerCase().trim() === String(d.title || "").toLowerCase().trim()
+          );
+          return {
+            id: d.id,
+            title: d.title,
+            area: d.area,
+            tag: d.tag,
+            category: d.category,
+            image:
+              matchingInit?.image ||
+              (d.image && (d.image.startsWith("http") || d.image.startsWith("data:") || d.image.startsWith("/assets"))
+                ? d.image
+                : "/assets/cochabamba-hero.jpg"),
+            rating: d.rating || "4.8",
+            time: d.time,
+            featured: d.featured,
+            visible: d.visible,
+            coordinates: Array.isArray(d.coordinates)
+              ? d.coordinates
+              : d.coordinates && typeof d.coordinates === "object" && "lng" in d.coordinates
+                ? [d.coordinates.lng, d.coordinates.lat]
+                : matchingInit?.coordinates,
+            createdAt: d.created_at || d.createdAt,
+            updatedAt: d.updated_at || d.updatedAt,
+            createdBy: d.created_by || d.createdBy,
+            precio: d.precio !== undefined ? Number(d.precio) : matchingInit?.precio,
+            precioUsd: (d.precio_usd ?? d.precioUsd) !== undefined ? Number(d.precio_usd ?? d.precioUsd) : matchingInit?.precioUsd,
+            precioDetalle: d.precio_detalle || d.precioDetalle || matchingInit?.precioDetalle,
+            horarioVisita: d.horario_visita || d.horarioVisita || matchingInit?.horarioVisita,
+            descripcionItems: d.descripcion_items || d.descripcionItems || matchingInit?.descripcionItems,
+            consejo: d.consejo || matchingInit?.consejo,
+            datoHistorico: d.dato_historico || d.datoHistorico || matchingInit?.datoHistorico,
+            badges: d.badges || matchingInit?.badges,
+          };
+        });
         // Enriquecer con INITIAL_PLACES y LocalStorage para campos extendidos si Supabase no los tiene
         const localCached = await secureGet<PlaceItem[]>(LOCAL_PLACES_KEY);
         const localMap = new Map((localCached || []).map((p) => [p.id, p]));
@@ -165,8 +170,12 @@ export async function getLocalPlaces(): Promise<PlaceItem[]> {
       modified = true;
     } else {
       const cur = storedMap.get(initP.id)!;
-      if (initP.image && cur.image !== initP.image && !cur.image?.startsWith("data:") && !cur.image?.startsWith("http")) {
-        cur.image = initP.image;
+      const initByTitle = INITIAL_PLACES.find(
+        (p) => p.title.toLowerCase().trim() === String(cur.title || "").toLowerCase().trim()
+      );
+      const validImage = initP.image || initByTitle?.image;
+      if (validImage && cur.image !== validImage && !cur.image?.startsWith("data:") && !cur.image?.startsWith("http")) {
+        cur.image = validImage;
         modified = true;
       }
       if (initP.coordinates && (!cur.coordinates || cur.coordinates[0] !== initP.coordinates[0])) {

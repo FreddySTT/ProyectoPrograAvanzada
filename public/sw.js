@@ -7,28 +7,32 @@
  *   - Offline fallback → página shell cacheada
  */
 
-const CACHE_NAME = 'riqsi-rutas-v2'
-const API_CACHE  = 'riqsi-api-v2'
+const CACHE_NAME = 'riqsi-rutas-v4'
+const API_CACHE  = 'riqsi-api-v4'
 
 // Recursos a pre-cachear en la instalación
 const PRECACHE_URLS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/gato-explorador.png',
+  '/assets/cochabamba-hero.jpg',
+  '/assets/patrimonio.jpg',
+  '/assets/tunari.jpg',
+  '/assets/gastronomia.jpg',
+  '/assets/gato-explorador.png',
 ]
 
 // ─── Install ──────────────────────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
+  self.skipWaiting()
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
-      .then(() => self.skipWaiting()),
+      .then((cache) => cache.addAll(PRECACHE_URLS).catch(() => {}))
   )
 })
 
-// ─── Activate: limpiar caches viejos ─────────────────────────────────────────
+// ─── Activate: limpiar caches viejos agresivamente ───────────────────────────
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
@@ -49,28 +53,35 @@ self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
 
-  // Solo interceptar GET; POST/PUT/DELETE van siempre a red
   if (request.method !== 'GET') return
 
-  // 1. Stale-While-Revalidate para /api/places
+  // 1. Navegación principal (HTML): Network-First para siempre recibir el último build
+  if (request.mode === 'navigate') {
+    event.respondWith(networkFirst(request, CACHE_NAME))
+    return
+  }
+
+  // 2. API calls
   if (url.pathname.startsWith('/api/places')) {
     event.respondWith(staleWhileRevalidate(request, API_CACHE))
     return
   }
-
-  // 2. Network-First para otras llamadas API
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(networkFirst(request, API_CACHE))
     return
   }
 
-  // 3. Cache-First para assets Vite (hash en nombre → inmutables)
-  if (url.pathname.startsWith('/assets/') || url.pathname.match(/\.(js|css|woff2?|png|webp|svg|jpg|ico)$/)) {
+  // 3. Tiles de mapas externos: NUNCA interceptar por service worker (dejar a la red directa)
+  if (url.hostname.includes('arcgisonline.com') || url.hostname.includes('openstreetmap.org') || url.hostname.includes('project-osrm.org')) {
+    return
+  }
+
+  // 4. Assets estáticos (imágenes, fuentes, css, js)
+  if (url.pathname.startsWith('/assets/') || url.pathname.match(/\.(js|css|woff2?|png|webp|svg|jpg|jpeg|ico)$/)) {
     event.respondWith(cacheFirst(request, CACHE_NAME))
     return
   }
 
-  // 4. Network con fallback al index (SPA routing)
   event.respondWith(networkWithSpaFallback(request))
 })
 
@@ -78,10 +89,10 @@ self.addEventListener('fetch', (event) => {
 
 async function cacheFirst(request, cacheName) {
   const cached = await caches.match(request)
-  if (cached) return cached
+  if (cached && cached.ok && cached.status === 200) return cached
   try {
     const response = await fetch(request)
-    if (response.ok) {
+    if (response.ok && response.status === 200) {
       const cache = await caches.open(cacheName)
       cache.put(request, response.clone())
     }
