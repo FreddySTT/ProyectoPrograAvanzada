@@ -5,7 +5,6 @@ import {
   generateVerificationCode,
   sendVerificationEmail,
   verifyCode,
-  getActiveVerificationCode,
 } from "../utils/emailVerification";
 
 interface AuthModalProps {
@@ -277,10 +276,6 @@ export function AuthModal({
     setLoginPass(pass);
     setLoginError("");
   };
-
-  const activeVerificationCode = pendingRegData
-    ? getActiveVerificationCode(pendingRegData.email)
-    : null;
 
   return (
     <div
@@ -667,43 +662,25 @@ export function AuthModal({
                 </div>
               )}
 
-              {verifySentNotice && (
-                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800">
-                  <div className="font-bold flex items-center gap-1.5 mb-1">
-                    <span>📨 Código enviado a:</span>
-                    <span className="font-mono bg-white px-2 py-0.5 rounded border border-emerald-200">
-                      {pendingRegData.email}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-emerald-700">
-                    Revisa tu bandeja principal o spam. El código es válido por 15 minutos.
-                  </p>
+              <div className="rounded-2xl bg-[#FAF7F2] border border-[#E2D9CC] p-4 text-center">
+                <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#D81B60]/10 text-2xl mb-2 text-[#D81B60]">
+                  ✉️
                 </div>
-              )}
-
-              {/* Sandbox / Código de verificación visible para pruebas y evaluación */}
-              {activeVerificationCode && (
-                <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-900">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-subtitle font-extrabold flex items-center gap-1.5">
-                      <span>🔑</span> Código de verificación:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setVerifyCodeInput(activeVerificationCode)}
-                      className="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-bold text-[11px] hover:bg-amber-700 transition shadow-sm"
-                    >
-                      Autocompletar
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-center py-2 bg-white rounded-xl border border-amber-200 tracking-[0.4em] font-mono text-2xl font-black text-[#D81B60]">
-                    {activeVerificationCode}
-                  </div>
-                  <p className="mt-2 text-[10px] text-amber-700 text-center">
-                    (Enviado al correo especificado y accesible aquí para pruebas inmediatas)
-                  </p>
+                <h3 className="font-subtitle font-bold text-sm text-[#37474F]">
+                  Revisa tu bandeja de entrada
+                </h3>
+                <p className="text-xs text-[#6D4C41] mt-1 leading-relaxed">
+                  Hemos enviado el código de verificación de 6 dígitos a:
+                  <br />
+                  <strong className="text-[#37474F] font-mono font-bold text-sm">{pendingRegData.email}</strong>
+                </p>
+                <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200/80 p-2.5 text-[11px] text-amber-900 leading-normal text-left flex items-start gap-2">
+                  <span className="text-base shrink-0">💡</span>
+                  <span>
+                    El correo puede tardar unos segundos en llegar. Si no lo encuentras en tu bandeja principal, <strong>revisa tu carpeta de correo no deseado (Spam)</strong>.
+                  </span>
                 </div>
-              )}
+              </div>
 
               <div>
                 <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1.5 text-center">

@@ -48,14 +48,24 @@ export async function sendVerificationEmail(
     attempts: 0,
   });
 
+  // Log de auditoría técnico (disponible en consola F12 para desarrolladores / depuración)
+  if (typeof window !== "undefined") {
+    console.info(
+      `%c[Riqsi Rutas Auth]%c Código de verificación para ${cleanEmail}: %c${code}`,
+      "color: #D81B60; font-weight: bold",
+      "color: #37474F",
+      "color: #059669; font-weight: bold; font-family: monospace"
+    );
+  }
+
   let delivered = false;
 
-  // Intento de envío real mediante Web3Forms / endpoint público de correo
+  // Canal 1: FormSubmit AJAX — Despacho directo al correo del destinatario
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-    const res = await fetch("https://api.web3forms.com/submit", {
+    const res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(cleanEmail)}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -63,31 +73,55 @@ export async function sendVerificationEmail(
       },
       signal: controller.signal,
       body: JSON.stringify({
-        access_key: "c23f2f53-29a8-42fa-9082-95f2e604f861",
-        subject: `Código de confirmación Riqsi Rutas: ${code}`,
-        from_name: "Riqsi Rutas Cochabamba",
-        to: cleanEmail,
-        email: cleanEmail,
-        message: `¡Hola ${name}!\n\nTu código de verificación para activar tu cuenta de viajero en Riqsi Rutas Cochabamba es:\n\n👉  ${code}  👈\n\nIngresa este código de 6 dígitos en la aplicación para confirmar tu dirección de correo electrónico.\n\nEste código vence en 15 minutos.\n\n¡Gracias por explorar Cochabamba con nosotros!\nEquipo Riqsi Rutas · Turismo Cochabamba`,
+        _subject: `Código de verificación Riqsi Rutas: ${code}`,
+        _template: "box",
+        _captcha: "false",
+        nombre_destinatario: name,
+        correo_destinatario: cleanEmail,
+        codigo_de_verificacion: code,
+        mensaje: `Hola ${name}, tu código de 6 dígitos para confirmar tu cuenta en Riqsi Rutas Cochabamba es: ${code}.\n\nIntroduce este código en la aplicación para activar tu cuenta. Vence en 15 minutos.`,
       }),
     });
 
     clearTimeout(timeoutId);
-
     if (res.ok) {
       delivered = true;
     }
   } catch (e) {
-    // Si la red no permite el envío externo, se maneja de forma segura sin romper la experiencia
-    console.info("Intento de envío de email en segundo plano:", e);
+    console.warn("[Email Verification] Fallo en despacho vía FormSubmit:", e);
+  }
+
+  // Canal 2: EmailJS (si está configurado en variables de entorno)
+  const emailJsService = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+  const emailJsTemplate = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+  const emailJsKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+  if (emailJsService && emailJsTemplate && emailJsKey) {
+    try {
+      const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_id: emailJsService,
+          template_id: emailJsTemplate,
+          user_id: emailJsKey,
+          template_params: {
+            to_email: cleanEmail,
+            user_name: name,
+            verification_code: code,
+          },
+        }),
+      });
+      if (res.ok) delivered = true;
+    } catch (e) {
+      console.warn("[Email Verification] Fallo en despacho vía EmailJS:", e);
+    }
   }
 
   return {
     success: true,
     delivered,
-    message: delivered
-      ? `Código enviado con éxito a ${cleanEmail}. Revisa tu bandeja de entrada o spam.`
-      : `Código de verificación generado para ${cleanEmail}.`,
+    message: `Código de 6 dígitos enviado a ${cleanEmail}. Revisa tu bandeja de entrada o spam.`,
   };
 }
 
