@@ -343,6 +343,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithGoogle = async () => {
     setAuthError("");
+    let lastErrorMsg = "";
+
     // 1. Intento con Firebase Auth (popup interactivo en vivo)
     try {
       const res = await firebaseLoginWithGoogle();
@@ -359,11 +361,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         return { success: true, message: res.message };
       }
-      if (res.message && !res.message.includes("no está configurado")) {
-        setAuthError(res.message);
+      if (res.message) {
+        lastErrorMsg = res.message;
       }
-    } catch {
-      // Continuar al fallback de Supabase
+    } catch (e: any) {
+      lastErrorMsg = e?.message || "";
     }
 
     // 2. Fallback con Supabase Google OAuth (redirección)
@@ -376,18 +378,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             redirectTo: window.location.origin + window.location.pathname,
           },
         });
-        if (error) {
-          setAuthError(error.message);
-          return { success: false, message: error.message };
+        if (!error) {
+          return { success: true, message: "Redirigiendo a Google para autenticación..." };
         }
-        return { success: true, message: "Redirigiendo a Google para autenticación..." };
+        if (error.message) {
+          lastErrorMsg = `Google OAuth no está habilitado en las consolas Cloud: ${error.message}`;
+        }
       } catch (e: any) {
-        setAuthError(e.message || "Error al conectar con Google OAuth");
-        return { success: false, message: e.message || "Error al conectar con Google OAuth" };
+        lastErrorMsg = e?.message || lastErrorMsg;
       }
     }
 
-    return { success: false, message: "No se pudo iniciar sesión con Google." };
+    const finalMsg =
+      lastErrorMsg ||
+      "El acceso con Google debe habilitarse en Firebase Console (Authentication → Sign-in method → Google). Puedes ingresar con correo/contraseña o cuentas demo.";
+    setAuthError(finalMsg);
+    return { success: false, message: finalMsg };
   };
 
   const register = async ({

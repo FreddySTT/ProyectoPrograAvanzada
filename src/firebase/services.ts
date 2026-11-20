@@ -482,6 +482,14 @@ function mapFirebaseError(code: string): string {
       "Demasiados intentos. Cuenta temporalmente bloqueada.",
     "auth/network-request-failed":
       "Error de red. Verifica tu conexión a internet.",
+    "auth/configuration-not-found":
+      "El acceso con Google debe habilitarse en Firebase Console (Authentication → Sign-in method → Habilitar Google). Puedes ingresar con correo/contraseña o con las cuentas demo.",
+    "auth/popup-closed-by-user":
+      "Ventana de Google cerrada antes de completar el inicio de sesión.",
+    "auth/cancelled-popup-request":
+      "Operación cancelada por otra ventana emergente en curso.",
+    "auth/popup-blocked":
+      "Tu navegador bloqueó la ventana emergente de Google. Por favor permite ventanas emergentes.",
   };
   return map[code] ?? `Error de autenticación: ${code}`;
 }
