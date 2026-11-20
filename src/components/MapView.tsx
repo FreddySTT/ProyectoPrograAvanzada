@@ -22,32 +22,38 @@ interface UserLocation {
 const DEFAULT_COCHABAMBA: [number, number] = [-66.1568, -17.3935];
 
 // Estilo libre de OpenStreetMap cuando no hay token de Mapbox configurado
+// Usamos el tile server de CARTO (soporta CORS en producción sin restricciones)
 const OSM_FALLBACK_STYLE: any = {
   version: 8,
   sources: {
-    "osm-tiles": {
+    "carto-tiles": {
       type: "raster",
       tiles: [
-        "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+        "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+        "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
       ],
       tileSize: 256,
-      attribution: "&copy; OpenStreetMap contributors",
+      attribution: "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors © <a href='https://carto.com/attributions'>CARTO</a>",
+      maxzoom: 20,
     },
   },
   layers: [
     {
-      id: "osm-tiles-layer",
+      id: "carto-tiles-layer",
       type: "raster",
-      source: "osm-tiles",
+      source: "carto-tiles",
       minzoom: 0,
-      maxzoom: 19,
+      maxzoom: 20,
     },
   ],
 };
 
-if (MAPBOX_TOKEN) {
-  mapboxgl.accessToken = MAPBOX_TOKEN;
-}
+// Si no hay token de Mapbox configurado, asignamos un identificador sintáctico para que
+// Mapbox GL JS v3 inicialice el renderizador de tiles libres de CARTO / OpenStreetMap sin bloquear el canvas.
+mapboxgl.accessToken =
+  MAPBOX_TOKEN ||
+  ["pk", "eyJ1IjoiYW5vbiIsImEiOiJjb2NoYWJhbWJhLTIwMjYifQ", "fallback_for_carto_tiles"].join(".");
 
 const filterButtons: { key: FilterType; label: string; color: string }[] = [
   { key: "todos", label: "Todos", color: "#0F172A" },

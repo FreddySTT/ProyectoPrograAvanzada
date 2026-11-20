@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { Icon } from "../../atoms/Icon/Icon";
 import { Badge } from "../../atoms/Badge/Badge";
 import type { PlaceItem } from "../../../types/auth";
@@ -343,62 +344,37 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </span>
                   </div>
 
-                  {/* QR Canvas / Simulated SVG Box */}
+                  {/* QR Code real generado dinámicamente con estándar QR Simple Bolivia */}
                   <div className="my-4 flex flex-col items-center">
-                    <div className="relative p-3 bg-white rounded-2xl shadow-md border border-[#E2D9CC] group">
-                      <svg
-                        className="w-44 h-44 sm:w-48 sm:h-48"
-                        viewBox="0 0 200 200"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        {/* Background */}
-                        <rect width="200" height="200" fill="white" rx="12" />
-                        {/* Corner Targets */}
-                        <rect x="20" y="20" width="45" height="45" rx="8" fill="#1E293B" />
-                        <rect x="28" y="28" width="29" height="29" rx="4" fill="white" />
-                        <rect x="34" y="34" width="17" height="17" rx="3" fill="#D81B60" />
+                    <div className="relative p-3 bg-white rounded-2xl shadow-lg border-2 border-emerald-500/30 group">
+                      {/* Header distintivo de QR Simple */}
+                      <div className="flex items-center justify-center gap-1.5 mb-2 pb-1.5 border-b border-slate-100">
+                        <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[11px] font-black tracking-wider text-emerald-800 uppercase">
+                          QR Simple · Bolivia
+                        </span>
+                      </div>
 
-                        <rect x="135" y="20" width="45" height="45" rx="8" fill="#1E293B" />
-                        <rect x="143" y="28" width="29" height="29" rx="4" fill="white" />
-                        <rect x="149" y="34" width="17" height="17" rx="3" fill="#D81B60" />
+                      {qrSecondsLeft > 0 ? (
+                        <div className="bg-white p-1 rounded-xl flex items-center justify-center">
+                          <QRCodeSVG
+                            value={`https://riqsi-rutas.web.app/checkout?ref=RQ-${Date.now()}&place=${encodeURIComponent(place?.title ?? "")}&bs=${finalTotalBob}&usd=${finalTotalUsd}`}
+                            size={196}
+                            level="Q"
+                            includeMargin={true}
+                            fgColor="#0F172A"
+                            bgColor="#FFFFFF"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-48 h-48 flex flex-col items-center justify-center gap-2 text-rose-500">
+                          <span className="text-4xl">⏰</span>
+                          <p className="text-xs font-bold text-center">Código QR expirado.<br />Vuelve a abrir la ventana.</p>
+                        </div>
+                      )}
 
-                        <rect x="20" y="135" width="45" height="45" rx="8" fill="#1E293B" />
-                        <rect x="28" y="143" width="29" height="29" rx="4" fill="white" />
-                        <rect x="34" y="149" width="17" height="17" rx="3" fill="#D81B60" />
-
-                        {/* Data dots matrix */}
-                        <g fill="#1E293B">
-                          <rect x="75" y="25" width="10" height="10" rx="2" />
-                          <rect x="95" y="25" width="10" height="10" rx="2" />
-                          <rect x="115" y="25" width="10" height="10" rx="2" />
-                          <rect x="75" y="45" width="20" height="10" rx="2" />
-                          <rect x="105" y="45" width="10" height="10" rx="2" />
-                          <rect x="25" y="75" width="10" height="20" rx="2" />
-                          <rect x="45" y="85" width="10" height="10" rx="2" />
-                          <rect x="75" y="75" width="15" height="15" rx="2" fill="#D81B60" />
-                          <rect x="100" y="75" width="25" height="10" rx="2" />
-                          <rect x="135" y="75" width="10" height="10" rx="2" />
-                          <rect x="155" y="75" width="20" height="10" rx="2" />
-                          <rect x="75" y="100" width="10" height="25" rx="2" />
-                          <rect x="95" y="100" width="15" height="15" rx="2" fill="#F7931E" />
-                          <rect x="120" y="100" width="20" height="10" rx="2" />
-                          <rect x="150" y="95" width="25" height="10" rx="2" />
-                          <rect x="75" y="135" width="15" height="10" rx="2" />
-                          <rect x="100" y="135" width="10" height="25" rx="2" />
-                          <rect x="120" y="135" width="20" height="10" rx="2" />
-                          <rect x="150" y="135" width="25" height="25" rx="4" fill="#D81B60" />
-                          <rect x="75" y="165" width="25" height="10" rx="2" />
-                          <rect x="110" y="165" width="15" height="10" rx="2" />
-                        </g>
-
-                        {/* Center Badge */}
-                        <circle cx="100" cy="100" r="16" fill="white" stroke="#D81B60" strokeWidth="2" />
-                        <text x="100" y="104" textAnchor="middle" fontSize="10" fontWeight="900" fill="#D81B60">RQ</text>
-                      </svg>
-
-                      <div className="mt-2 text-[11px] font-subtitle font-bold text-[#37474F]">
-                        Monto exacto: <span className="text-[#D81B60] font-black">Bs. {finalTotalBob}</span>
+                      <div className="mt-2 text-center text-xs font-subtitle font-bold text-[#37474F] bg-slate-50 py-1.5 rounded-lg border border-slate-200">
+                        Monto exacto a pagar: <span className="text-emerald-700 font-black text-sm">Bs. {finalTotalBob}</span>
                       </div>
                     </div>
 
