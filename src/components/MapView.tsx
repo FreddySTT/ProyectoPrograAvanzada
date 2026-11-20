@@ -21,30 +21,28 @@ interface UserLocation {
 // Cochabamba Coordinates: Plaza 14 de Septiembre [lng, lat]
 const DEFAULT_COCHABAMBA: [number, number] = [-66.1568, -17.3935];
 
-// Estilo libre de OpenStreetMap cuando no hay token de Mapbox configurado
-// Usamos el tile server de CARTO (soporta CORS en producción sin restricciones)
+// Estilo libre de alta disponibilidad cuando no hay token de Mapbox configurado
+// Usamos ESRI ArcGIS World Street Map (100% libre, sin marca de agua y sin necesidad de API Key)
 const OSM_FALLBACK_STYLE: any = {
   version: 8,
   sources: {
-    "carto-tiles": {
+    "world-street-map": {
       type: "raster",
       tiles: [
-        "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
-        "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
-        "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
       ],
       tileSize: 256,
-      attribution: "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors © <a href='https://carto.com/attributions'>CARTO</a>",
-      maxzoom: 20,
+      attribution: "© Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, © OpenStreetMap contributors",
+      maxzoom: 19,
     },
   },
   layers: [
     {
-      id: "carto-tiles-layer",
+      id: "world-street-map-layer",
       type: "raster",
-      source: "carto-tiles",
+      source: "world-street-map",
       minzoom: 0,
-      maxzoom: 20,
+      maxzoom: 19,
     },
   ],
 };
