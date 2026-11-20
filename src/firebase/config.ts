@@ -11,14 +11,14 @@ import { getDatabase, type Database } from "firebase/database";
 import { initializeAppCheck, ReCaptchaV3Provider, type AppCheck } from "firebase/app-check";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyClt7kY-8zo8fpu7clmjhVsOwpWsBNL8XA",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "riqsi-rutas.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "riqsi-rutas",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "riqsi-rutas.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "328483840746",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:328483840746:web:de2303e306e0bc86662d93",
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-WDHDETLEDV",
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || `https://${import.meta.env.VITE_FIREBASE_PROJECT_ID || "riqsi-rutas"}-default-rtdb.firebaseio.com`,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://riqsi-rutas-default-rtdb.firebaseio.com",
 };
 
 export function isFirebaseConfigured(): boolean {

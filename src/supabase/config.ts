@@ -90,6 +90,8 @@ export function getSupabaseClient(): SupabaseClient | null {
   try {
     supabaseInstance = createClient(config.url, config.anonKey, {
       auth: {
+        flowType: "implicit", // SPA sin persistencia: recibir la sesión tras volver de Google
+        detectSessionInUrl: true,
         persistSession: false, // Seguridad reforzada: no persistir sesiones en localStorage
         autoRefreshToken: true,
       },

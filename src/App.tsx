@@ -386,11 +386,27 @@ function CategoryPage({
 
 // ─── Main Application ─────────────────────────────────────────────────────────
 function MainApp() {
-  const { currentUser, isEffectiveAdmin, logout } = useAuth();
+  const { currentUser, isEffectiveAdmin, logout, authError } = useAuth();
 
   // Navigation State
   const [favorites, setFavorites] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
+  const [welcomeMessage, setWelcomeMessage] = useState("");
+  const signedInUserId = currentUser?.id;
+  const signedInUserName = currentUser?.name;
+
+  useEffect(() => {
+    if (!signedInUserId) {
+      setWelcomeMessage("");
+      return;
+    }
+
+    const firstName = signedInUserName?.trim().split(/\s+/)[0] || "viajero";
+    setNotice("");
+    setWelcomeMessage(`¡Bienvenido, ${firstName}! Tu sesión se inició correctamente.`);
+    const timeout = window.setTimeout(() => setWelcomeMessage(""), 6000);
+    return () => window.clearTimeout(timeout);
+  }, [signedInUserId]);
   const [activeCategory, setActiveCategory] = useState<CategoryKey | null>(null);
   const [showFlaskDemo, setShowFlaskDemo] = useState(false);
 
@@ -487,6 +503,17 @@ function MainApp() {
   const notify = (msg: string) => {
     setNotice(msg);
     window.setTimeout(() => setNotice(""), 4500);
+  };
+
+  const handleLogout = async () => {
+    const firstName = currentUser?.name?.trim().split(/\s+/)[0] || "viajero";
+    try {
+      await logout();
+      setWelcomeMessage("");
+      notify(`¡Hasta pronto, ${firstName}! Tu sesión se cerró correctamente.`);
+    } catch {
+      notify("No se pudo completar el cierre de sesión. Vuelve a intentarlo.");
+    }
   };
 
   const toggleFavorite = (title: string) => {
@@ -702,7 +729,7 @@ function MainApp() {
           )
         }
         onOpenAuthModal={(tab) => { setAuthModalTab(tab); setIsAuthModalOpen(true); }}
-        onLogout={() => { logout(); notify("Sesión cerrada correctamente."); }}
+        onLogout={handleLogout}
         onOpenFlaskDemo={() => { setShowFlaskDemo(true); window.scrollTo({ top: 0 }); }}
         onOpenEditAnnouncement={() => setIsAdminAnnouncementModalOpen(true)}
         onOpenPayReservation={() => openPaymentModal()}
@@ -952,14 +979,14 @@ function MainApp() {
       />
 
       {/* ── Toast Notification ── */}
-      {notice && (
+      {(notice || authError || welcomeMessage) && (
         <div
           role="status"
           className="fixed bottom-6 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 rounded-2xl bg-[#1E293B] border-2 border-[#D81B60] px-5 py-4 text-center font-subtitle text-sm font-bold text-white shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200"
         >
           <div className="flex items-center justify-center gap-2.5">
             <AndeanDiamond size={18} />
-            <span>{notice}</span>
+            <span>{authError || notice || welcomeMessage}</span>
           </div>
         </div>
       )}

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import type { User, Role, SecurityLog } from "../types/auth";
 import { INITIAL_USERS } from "../data/initialData";
-import { isSupabaseConfigured } from "../supabase/config";
+import { isSupabaseConfigured, getSupabaseClient } from "../supabase/config";
 import { BACKEND } from "../config/backend";
 import {
   firebaseLogin,
@@ -56,6 +56,7 @@ interface AuthContextType {
   purgeStorage: () => void;
   login: (usernameOrEmail: string, password: string) => Promise<{ success: boolean; message: string }>;
   loginWithGoogle: () => Promise<{ success: boolean; message: string }>;
+  authError: string;
   register: (data: { name: string; email: string; password: string; username?: string; avatar?: string; emailVerified?: boolean }) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
   elevateToAdmin: (securityKey: string) => Promise<{ success: boolean; message: string }>;
@@ -75,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [securityLogs, setSecurityLogs] = useState<SecurityLog[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authError, setAuthError] = useState("");
   const [storageMode, setStorageModeState] = useState<StorageMode>(getStorageMode());
 
   // ── Firebase Auth: escuchar cambios de sesión cuando el backend es Firebase ──
@@ -109,6 +111,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     secureGet<Omit<User, "passwordHash">>(SESSION_STORAGE_KEY).then((stored) => {
       if (stored) setCurrentUser(stored as User);
     });
+  }, []);
+
+  // Recibir la sesión OAuth al volver de Google mediante Supabase
+  useEffect(() => {
+    if (BACKEND === "firebase") return;
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    let active = true;
+    const applySession = (session: any) => {
+      if (!active || !session?.user) return;
+      const user = session.user;
+      const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Viajero";
+      setCurrentUser({
+        id: user.id,
+        name,
+        username: (user.email?.split("@")[0] || user.id).toLowerCase(),
+        email: user.email || "",
+        role: "normal",
+        status: "active",
+        avatar: "🎒",
+        createdAt: user.created_at ? user.created_at.split("T")[0] : new Date().toISOString().split("T")[0],
+        lastLogin: new Date().toISOString(),
+      });
+      setAuthError("");
+      setPreviewAsNormal(false);
+    };
+
+    const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
+      if (!active) return;
+      if (session?.user) {
+        applySession(session);
+      } else if (event === "SIGNED_OUT") {
+        setCurrentUser(null);
+      }
+    });
+
+    void (async () => {
+      try {
+        const initialization = await client.auth.initialize();
+        if (initialization?.error) throw initialization.error;
+        const { data, error } = await client.auth.getSession();
+        if (error) throw error;
+        if (data?.session) applySession(data.session);
+      } catch (error: any) {
+        console.warn("[Supabase Auth] Sesión OAuth:", error);
+      }
+    })();
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const [previewAsNormal, setPreviewAsNormal] = useState<boolean>(false);
@@ -287,6 +342,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginWithGoogle = async () => {
+    setAuthError("");
+    // 1. Intento con Firebase Auth (popup interactivo en vivo)
     try {
       const res = await firebaseLoginWithGoogle();
       if (res.success && res.user) {
@@ -302,10 +359,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         return { success: true, message: res.message };
       }
-      return { success: false, message: res.message || "Error al iniciar sesión con Google" };
-    } catch (e: any) {
-      return { success: false, message: e.message || "Fallo en autenticación con Google" };
+      if (res.message && !res.message.includes("no está configurado")) {
+        setAuthError(res.message);
+      }
+    } catch {
+      // Continuar al fallback de Supabase
     }
+
+    // 2. Fallback con Supabase Google OAuth (redirección)
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        const { error } = await client.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: window.location.origin + window.location.pathname,
+          },
+        });
+        if (error) {
+          setAuthError(error.message);
+          return { success: false, message: error.message };
+        }
+        return { success: true, message: "Redirigiendo a Google para autenticación..." };
+      } catch (e: any) {
+        setAuthError(e.message || "Error al conectar con Google OAuth");
+        return { success: false, message: e.message || "Error al conectar con Google OAuth" };
+      }
+    }
+
+    return { success: false, message: "No se pudo iniciar sesión con Google." };
   };
 
   const register = async ({
@@ -402,6 +484,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     const emailBefore = currentUser?.email || "anon";
+
+    if (BACKEND !== "firebase") {
+      const client = getSupabaseClient();
+      if (client) {
+        await client.auth.signOut({ scope: "local" }).catch(() => {});
+      }
+    }
 
     // ── Modo Firebase / Dual: cerrar sesión en Firebase Auth ─────────────────
     if (BACKEND === "firebase" || BACKEND === "dual") {
@@ -650,6 +739,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         purgeStorage,
         login,
         loginWithGoogle,
+        authError,
         register,
         logout,
         elevateToAdmin,
