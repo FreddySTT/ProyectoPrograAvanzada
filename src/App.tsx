@@ -30,6 +30,8 @@ import { Footer } from "./components/organisms/Footer/Footer";
 import { ImageZoomModal, type ZoomModalData } from "./components/molecules/ImageZoomModal/ImageZoomModal";
 import { PaymentModal } from "./components/organisms/PaymentModal/PaymentModal";
 import { PlaceDetailModal } from "./components/molecules/PlaceDetailModal/PlaceDetailModal";
+import { AiRouteAdvisorModal } from "./components/molecules/AiRouteAdvisorModal/AiRouteAdvisorModal";
+import { subscribeToRealtimeAlerts, type LiveLlajtaAlert } from "./firebase/services";
 import { ZoomImage } from "./components/atoms/ZoomImage/ZoomImage";
 import { MapView } from "./components/MapView";
 import type { SearchOption } from "./components/molecules/SearchCombobox/SearchCombobox";
@@ -431,13 +433,17 @@ function MainApp() {
   const [showMap, setShowMap] = useState(false);
   const [mapInitialPlace, setMapInitialPlace] = useState<PlaceItem | null>(null);
 
+  // Firebase AI Logic & Realtime Database States
+  const [isAiAdvisorOpen, setIsAiAdvisorOpen] = useState(false);
+  const [liveRtdbAlert, setLiveRtdbAlert] = useState<LiveLlajtaAlert | null>(null);
+
   // Load persisted data
   useEffect(() => {
     getLocalPlaces().then((stored) => { if (stored?.length) setPlaces(stored); });
     getLocalAnnouncement().then((stored) => { if (stored) setAnnouncement(stored); });
   }, []);
 
-  // Subscribe to Supabase real-time
+  // Subscribe to Supabase real-time and Firebase RTDB live alerts
   useEffect(() => {
     const unsubPlaces = subscribeToPlaces((cloudPlaces) => {
       if (cloudPlaces?.length) setPlaces(cloudPlaces);
@@ -445,7 +451,10 @@ function MainApp() {
     const unsubAnn = subscribeToAnnouncement((cloudAnn) => {
       if (cloudAnn) setAnnouncement(cloudAnn);
     });
-    return () => { unsubPlaces(); unsubAnn(); };
+    const unsubAlerts = subscribeToRealtimeAlerts((alert) => {
+      if (alert) setLiveRtdbAlert(alert);
+    });
+    return () => { unsubPlaces(); unsubAnn(); unsubAlerts(); };
   }, []);
 
   // Admin portal & Map hash / keyboard shortcut
@@ -698,6 +707,40 @@ function MainApp() {
         onOpenMap={() => { setMapInitialPlace(null); setShowMap(true); }}
       />
 
+      {/* ── Firebase Realtime Database Live Alert Banner ── */}
+      {liveRtdbAlert && (
+        <aside
+          role="alert"
+          className="bg-gradient-to-r from-amber-600 via-rose-600 to-purple-700 text-white px-4 py-2 text-xs font-subtitle font-bold flex items-center justify-between shadow-md transition animate-in fade-in"
+        >
+          <div className="flex items-center gap-2 mx-auto">
+            <span className="bg-white/20 px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-black">
+              📢 {liveRtdbAlert.badge || "ALERTA EN VIVO COCHABAMBA"}
+            </span>
+            <span>{liveRtdbAlert.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setLiveRtdbAlert(null)}
+            className="text-white/80 hover:text-white px-2 py-0.5 rounded hover:bg-white/10 text-xs cursor-pointer"
+            title="Cerrar aviso"
+          >
+            ✕
+          </button>
+        </aside>
+      )}
+
+      {/* ── Floating Gemini AI Tourist Route Advisor Launcher Button ── */}
+      <button
+        type="button"
+        onClick={() => setIsAiAdvisorOpen(true)}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 rounded-full bg-gradient-to-r from-[#D81B60] via-[#C2185B] to-[#8E24AA] px-5 py-3 text-xs font-subtitle font-extrabold text-white shadow-2xl shadow-[#D81B60]/40 hover:scale-105 active:scale-95 transition cursor-pointer border-2 border-white"
+        title="Generar ruta turística personalizada con IA Gemini"
+      >
+        <span className="text-base animate-pulse">✨</span>
+        <span>Asistente IA de Rutas</span>
+      </button>
+
       <main>
         {/* Hero Section with smart search bar */}
         <HeroSection
@@ -883,6 +926,18 @@ function MainApp() {
         onClose={() => setIsPaymentModalOpen(false)}
         onSuccess={(booking) => {
           notify(`✅ Reserva ${booking.bookingCode} confirmada para ${booking.placeTitle}`);
+        }}
+      />
+
+      {/* ── Firebase AI Logic: Gemini Route Advisor Modal ── */}
+      <AiRouteAdvisorModal
+        isOpen={isAiAdvisorOpen}
+        onClose={() => setIsAiAdvisorOpen(false)}
+        places={places}
+        onOpenMapWithPlace={(place) => {
+          setMapInitialPlace(place);
+          setShowMap(true);
+          window.location.hash = "#mapa";
         }}
       />
 

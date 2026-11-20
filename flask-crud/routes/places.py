@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request, current_app
 from pydantic import ValidationError
 from models.schemas import PlaceSchema
 from models.database import PLACES_FALLBACK
-from core.auth import require_role
+from core.auth import require_role, require_admin_access
 from core.errors import make_problem_response
 
 places_bp = Blueprint("places_bp", __name__, url_prefix="/api/places")
@@ -119,7 +119,7 @@ def obtener_destino_por_id(place_id):
     return make_problem_response(404, "Not Found", f"Lugar '{place_id}' no encontrado.")
 
 @places_bp.route("", methods=["POST"])
-@require_role(["admin"])
+@require_admin_access
 def crear_destino():
     raw_data = request.get_json(silent=True) or {}
     norm = normalizar_payload_lugar(raw_data)
@@ -142,7 +142,7 @@ def crear_destino():
     }), 201
 
 @places_bp.route("/<place_id>", methods=["PUT", "PATCH"])
-@require_role(["admin"])
+@require_admin_access
 def actualizar_destino(place_id):
     """Permite al administrador editar cualquier campo visible en pantalla con persistencia inmediata."""
     raw_data = request.get_json(silent=True) or {}
@@ -185,7 +185,7 @@ def actualizar_destino(place_id):
     }), 200
 
 @places_bp.route("/<place_id>", methods=["DELETE"])
-@require_role(["admin"])
+@require_admin_access
 def eliminar_destino(place_id):
     PLACES_FALLBACK.pop(place_id, None)
     supabase_bridge = current_app.extensions["supabase_bridge"]

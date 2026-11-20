@@ -15,10 +15,13 @@ class Config:
     SUPABASE_URL = os.environ.get("SUPABASE_URL", os.environ.get("VITE_SUPABASE_URL", "")).rstrip("/")
     SUPABASE_KEY = os.environ.get("SUPABASE_KEY", os.environ.get("VITE_SUPABASE_ANON_KEY", ""))
     SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
+    # CLAVE MAESTRA DE SEGURIDAD PARA POSTMAN / ADMINISTRACIÓN
+    ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "riqsi-admin-freddy-secret-2026")
     # SEGURIDAD: Por defecto NUNCA se permite acceso anónimo.
     # Solo TestingConfig lo habilita para pytest.
     ALLOW_DEV_ANON = False
     PORT = int(os.environ.get("PORT", 5551))
+    HOST = os.environ.get("FLASK_HOST", "127.0.0.1")
     TESTING = False
 
 class DevelopmentConfig(Config):

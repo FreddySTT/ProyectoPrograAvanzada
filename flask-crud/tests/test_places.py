@@ -48,6 +48,23 @@ def test_actualizar_lugar_validacion(client):
     assert data["data"]["title"] == "Cristo de la Concordia Renovado"
     assert data["data"]["precio"] == 90.0
 
+def test_actualizar_lugar_con_api_key_postman(client):
+    """Verifica que el administrador pueda editar usando exclusivamente el header X-Admin-Key."""
+    resp = client.put(
+        "/api/places/place-1",
+        json={
+            "title": "Cristo de la Concordia Editado con API Key",
+            "area": "Cerro San Pedro",
+            "precio": 95.0,
+        },
+        headers={"X-Admin-Key": "riqsi-admin-freddy-secret-2026"},
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert data["data"]["title"] == "Cristo de la Concordia Editado con API Key"
+
+
 def test_lugar_no_encontrado(client):
     resp = client.get("/api/places/lugar-inexistente-xyz")
     assert resp.status_code == 404

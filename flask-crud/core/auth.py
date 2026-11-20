@@ -15,10 +15,85 @@ Flujo para Postman (producción / dev):
 """
 import functools
 import os
+import hmac
 from datetime import datetime, timezone
 import jwt
 from flask import request, current_app
 from .errors import make_problem_response
+
+
+def verify_admin_api_key(provided_key: str) -> bool:
+    """Valida la clave API maestra mediante comparación de tiempo constante (previene timing attacks)."""
+    expected_key = current_app.config.get("ADMIN_API_KEY") or os.environ.get("ADMIN_API_KEY", "")
+    if not expected_key or not provided_key:
+        return False
+    return hmac.compare_digest(provided_key.strip(), expected_key.strip())
+
+
+def require_admin_access(f):
+    """
+    Decorador de máxima seguridad para operaciones administrativas (POST, PUT, DELETE).
+    Permite el acceso si se cumple CUALQUIERA de estas dos condiciones verificadas:
+      1. Se envía el encabezado 'X-Admin-Key' con la clave API secreta del administrador (Postman seguro).
+      2. Se envía un Bearer JWT de Supabase/Firebase Auth con rol 'admin'.
+    Cualquier petición sin una de estas dos pruebas criptográficas es rechazada con 401 o 403.
+    """
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        # 1. Comprobar clave maestra en X-Admin-Key (Canal Postman seguro del administrador)
+        admin_key = request.headers.get("X-Admin-Key", "")
+        if admin_key and verify_admin_api_key(admin_key):
+            request.user = {
+                "id": "admin-api-key",
+                "email": "admin-freddy@riqsirutas.bo",
+                "role": "admin",
+                "auth_method": "api_key",
+            }
+            return f(*args, **kwargs)
+
+        # 2. Comprobar Bearer token JWT de Admin
+        auth_header = request.headers.get("Authorization", "")
+        supabase_secret_configured = bool(_get_supabase_jwt_secret())
+
+        # Bypass exclusivo para suite de pruebas aisladas (TestingConfig)
+        if not auth_header or not auth_header.startswith("Bearer "):
+            is_pure_test_env = (
+                current_app.config.get("ALLOW_DEV_ANON")
+                and not supabase_secret_configured
+            )
+            if is_pure_test_env:
+                request.user = {"id": "test-anon", "email": "test@riqsirutas.bo", "role": "admin", "auth_method": "test"}
+                return f(*args, **kwargs)
+
+            return make_problem_response(
+                401,
+                "Unauthorized",
+                "Acceso restringido. Se requiere encabezado 'X-Admin-Key' legítimo o 'Authorization: Bearer <token>' con rol de administrador."
+            )
+
+        token = auth_header.split(" ", 1)[1].strip()
+        try:
+            payload = decode_jwt_token(token)
+            role = extract_role_from_payload(payload)
+            request.user = {
+                "id": payload.get("sub") or payload.get("user_id"),
+                "email": payload.get("email"),
+                "role": role,
+                "payload": payload,
+                "auth_method": "jwt",
+            }
+        except ValueError as err:
+            return make_problem_response(401, "Unauthorized", str(err))
+
+        if role != "admin":
+            return make_problem_response(
+                403,
+                "Forbidden",
+                f"Acceso denegado. Se requiere rol de administrador para modificar destinos. Tu rol actual es '{role}'."
+            )
+
+        return f(*args, **kwargs)
+    return decorated
 
 
 def _get_supabase_jwt_secret() -> str:

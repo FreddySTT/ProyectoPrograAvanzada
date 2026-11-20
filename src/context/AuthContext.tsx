@@ -7,6 +7,7 @@ import {
   firebaseLogin,
   firebaseRegister,
   firebaseLogout,
+  firebaseLoginWithGoogle,
   onFirebaseAuthChange,
 } from "../firebase/services";
 import {
@@ -54,6 +55,7 @@ interface AuthContextType {
   toggleStorageMode: (mode: StorageMode) => void;
   purgeStorage: () => void;
   login: (usernameOrEmail: string, password: string) => Promise<{ success: boolean; message: string }>;
+  loginWithGoogle: () => Promise<{ success: boolean; message: string }>;
   register: (data: { name: string; username: string; email: string; password: string; avatar?: string }) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
   elevateToAdmin: (securityKey: string) => Promise<{ success: boolean; message: string }>;
@@ -282,6 +284,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ? `¡Bienvenido Administrador ${candidate.name}!`
           : `¡Bienvenido a Riqsi Rutas, ${candidate.name}!`,
     };
+  };
+
+  const loginWithGoogle = async () => {
+    try {
+      const res = await firebaseLoginWithGoogle();
+      if (res.success && res.user) {
+        setCurrentUser(res.user);
+        setPreviewAsNormal(false);
+        setFailedAttempts(0);
+        await logSecurityEvent({
+          event: "LOGIN_SUCCESS",
+          userEmail: res.user.email,
+          role: "normal",
+          status: "OK",
+          details: "Sesión iniciada correctamente con Google OAuth",
+        });
+        return { success: true, message: res.message };
+      }
+      return { success: false, message: res.message || "Error al iniciar sesión con Google" };
+    } catch (e: any) {
+      return { success: false, message: e.message || "Fallo en autenticación con Google" };
+    }
   };
 
   const register = async ({
@@ -612,6 +636,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         toggleStorageMode,
         purgeStorage,
         login,
+        loginWithGoogle,
         register,
         logout,
         elevateToAdmin,

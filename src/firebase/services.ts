@@ -29,10 +29,13 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref as rtdbRef, set as rtdbSet, onValue as rtdbOnValue, push as rtdbPush } from "firebase/database";
+import type { User } from "../types/auth";
 import {
   getFirebaseAuth,
   getFirebaseDb,
   getFirebaseStorage,
+  getFirebaseRtdb,
   isFirebaseConfigured,
   trackFirebaseEvent,
 } from "./config";
@@ -315,6 +318,154 @@ export async function firebaseLoginAnonymous(): Promise<FirebaseLoginResult> {
     };
   } catch (e: any) {
     return { success: false, message: e.message || "Error al iniciar como invitado" };
+  }
+}
+
+// ─── Firebase Auth: Login con Google OAuth ───────────────────────────────────
+
+export async function firebaseLoginWithGoogle(): Promise<FirebaseLoginResult & { user?: User }> {
+  if (!isFirebaseConfigured()) {
+    return {
+      success: false,
+      message: "Firebase no está configurado. Revisa las variables VITE_FIREBASE_*.",
+    };
+  }
+
+  const auth = getFirebaseAuth();
+  const db = getFirebaseDb();
+  if (!auth) {
+    return { success: false, message: "No se pudo inicializar Firebase Auth." };
+  }
+
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    const cred = await signInWithPopup(auth, provider);
+    const fbUser = cred.user;
+
+    const adaptedUser: User = {
+      id: fbUser.uid,
+      name: fbUser.displayName || fbUser.email?.split("@")[0] || "Turista Google",
+      username: (fbUser.email?.split("@")[0] || fbUser.uid).toLowerCase(),
+      email: fbUser.email || "",
+      passwordHash: "",
+      role: "normal",
+      status: "active",
+      avatar: fbUser.photoURL || "🎒",
+      createdAt: new Date().toISOString().split("T")[0],
+      lastLogin: new Date().toISOString(),
+    };
+
+    if (db) {
+      await setDoc(
+        doc(db, "users", fbUser.uid),
+        {
+          uid: fbUser.uid,
+          name: adaptedUser.name,
+          email: adaptedUser.email,
+          role: "normal",
+          status: "active",
+          avatar: adaptedUser.avatar,
+          lastLogin: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    trackFirebaseEvent("login_google", { uid: fbUser.uid });
+
+    return {
+      success: true,
+      message: `¡Bienvenido ${adaptedUser.name}! Has ingresado con tu cuenta Google.`,
+      uid: fbUser.uid,
+      email: fbUser.email || "",
+      user: adaptedUser,
+    };
+  } catch (err: any) {
+    const msg = mapFirebaseError(err.code);
+    return { success: false, message: msg };
+  }
+}
+
+// ─── Firebase Realtime Database: Alertas en Vivo de la Llajta ─────────────────
+
+export interface LiveLlajtaAlert {
+  id?: string;
+  badge: string;
+  message: string;
+  level: "info" | "warning" | "success";
+  timestamp: string;
+}
+
+export function subscribeToRealtimeAlerts(callback: (alert: LiveLlajtaAlert | null) => void): () => void {
+  const rtdb = getFirebaseRtdb();
+  if (!rtdb) {
+    callback(null);
+    return () => {};
+  }
+
+  try {
+    const alertRef = rtdbRef(rtdb, "alerts/live");
+    const unsubscribe = rtdbOnValue(alertRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        callback(data as LiveLlajtaAlert);
+      } else {
+        callback(null);
+      }
+    });
+    return () => unsubscribe();
+  } catch (e) {
+    console.warn("[Firebase RTDB] Error suscribiendo a alertas en vivo:", e);
+    return () => {};
+  }
+}
+
+export async function publishRealtimeAlert(alert: LiveLlajtaAlert): Promise<boolean> {
+  const rtdb = getFirebaseRtdb();
+  if (!rtdb) return false;
+  try {
+    const alertRef = rtdbRef(rtdb, "alerts/live");
+    await rtdbSet(alertRef, {
+      ...alert,
+      timestamp: new Date().toISOString(),
+    });
+    return true;
+  } catch (e) {
+    console.warn("[Firebase RTDB] Error publicando alerta:", e);
+    return false;
+  }
+}
+
+// ─── Firebase Storage: Subida de imágenes con validación ──────────────────────
+
+export async function firebaseUploadPlaceImageValidated(file: File, folder: string = "places"): Promise<{ success: boolean; url?: string; message: string }> {
+  // Validar tamaño máximo (5 MB)
+  const MAX_SIZE = 5 * 1024 * 1024;
+  if (file.size > MAX_SIZE) {
+    return { success: false, message: "El archivo supera el límite de 5 MB." };
+  }
+
+  // Validar tipo MIME permitido
+  const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return { success: false, message: "Formato no permitido. Solo se aceptan imágenes JPEG, PNG o WebP." };
+  }
+
+  const storage = getFirebaseStorage();
+  if (!storage) {
+    return { success: false, message: "Firebase Storage no está configurado." };
+  }
+
+  try {
+    const ext = file.name.split(".").pop() || "jpg";
+    const filename = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
+    const storageRef = ref(storage, filename);
+    const snap = await uploadBytes(storageRef, file, { contentType: file.type });
+    const downloadUrl = await getDownloadURL(snap.ref);
+    return { success: true, url: downloadUrl, message: "Imagen subida exitosamente a Firebase Storage" };
+  } catch (e: any) {
+    return { success: false, message: e.message || "Error al subir la imagen" };
   }
 }
 

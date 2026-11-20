@@ -23,6 +23,7 @@ from routes.places import places_bp
 from routes.dijkstra import dijkstra_bp
 from routes.payments import payments_bp
 from routes.docs import docs_bp
+from routes.ai import ai_bp
 
 def create_app(config_class=None):
     """Fábrica de Aplicaciones (Application Factory Pattern)."""
@@ -47,8 +48,13 @@ def create_app(config_class=None):
         config_class = get_config()
     app.config.from_object(config_class)
 
-    # 1. CORS configurado
-    CORS(app, resources={r"/*": {"origins": "*"}})
+    # 1. CORS configurado para comunicación segura y cabeceras de administración
+    CORS(
+        app,
+        resources={r"/*": {"origins": "*"}},
+        allow_headers=["Content-Type", "Authorization", "X-Admin-Key", "X-Dev-Role"],
+        expose_headers=["Content-Type", "X-Admin-Key", "Authorization"]
+    )
 
     # 2. Manejo uniforme de errores RFC-7807
     register_error_handlers(app)
@@ -74,6 +80,7 @@ def create_app(config_class=None):
     app.register_blueprint(dijkstra_bp)
     app.register_blueprint(payments_bp)
     app.register_blueprint(docs_bp)
+    app.register_blueprint(ai_bp)
 
     # 5. Cabeceras de Seguridad HTTP Enterprise
     @app.after_request
@@ -93,5 +100,7 @@ app = create_app()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5551))
-    print(f"🚀 Iniciando Riqsi Rutas Backend Factory en http://0.0.0.0:{port}")
-    app.run(host="0.0.0.0", port=port, debug=app.config.get("DEBUG", True))
+    # Seguridad de puertos: bind exclusivo a 127.0.0.1 (loopback) para que NO quede expuesto en la red local o Wi-Fi
+    bind_host = os.environ.get("FLASK_HOST", "127.0.0.1")
+    print(f"🚀 Iniciando Riqsi Rutas Backend Seguro en http://{bind_host}:{port} (Loopback Protegido)")
+    app.run(host=bind_host, port=port, debug=app.config.get("DEBUG", True))
