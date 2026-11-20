@@ -8,7 +8,9 @@ import natureValleyImage from "../assets/naturaleza-valle.jpg";
 import natureGreenImage from "../assets/naturaleza-verde.jpg";
 import tunariImage from "../assets/tunari.jpg";
 import foodDishesImage from "../assets/comida-platos.jpg";
-import type { PlaceItem, User, Announcement } from "../types/auth";
+import cultureStreetImage from "../assets/cultura-calle.jpg";
+import tradicionImage from "../assets/tradicion.jpg";
+import type { PlaceItem, User, Announcement, CulturalEvent } from "../types/auth";
 
 export const INITIAL_USERS: User[] = [
   {
@@ -20,6 +22,7 @@ export const INITIAL_USERS: User[] = [
     role: "admin",
     status: "active",
     avatar: "👑",
+    emailVerified: true,
     createdAt: "2026-09-01",
   },
   {
@@ -31,6 +34,7 @@ export const INITIAL_USERS: User[] = [
     role: "editor",
     status: "active",
     avatar: "📝",
+    emailVerified: true,
     createdAt: "2026-09-10",
   },
   {
@@ -42,6 +46,7 @@ export const INITIAL_USERS: User[] = [
     role: "normal",
     status: "active",
     avatar: "🎒",
+    emailVerified: true,
     createdAt: "2026-09-15",
   },
   {
@@ -53,6 +58,7 @@ export const INITIAL_USERS: User[] = [
     role: "normal",
     status: "active",
     avatar: "🌸",
+    emailVerified: true,
     createdAt: "2026-10-02",
   },
 ];

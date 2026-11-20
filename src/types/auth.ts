@@ -12,6 +12,7 @@ export interface User {
   avatar: string;
   createdAt: string;
   lastLogin?: string;
+  emailVerified?: boolean;
 }
 
 export interface PlaceItem {
@@ -79,3 +80,22 @@ export interface SecurityLog {
   status: "OK" | "WARNING" | "BLOCKED";
   details: string;
 }
+
+export interface CulturalEvent {
+  id: string;
+  title: string;
+  description: string;
+  date: string; // YYYY-MM-DD
+  endDate?: string;
+  time: string; // e.g. "18:00 – 22:30"
+  location: string;
+  area: string;
+  category: "gastronomia" | "danza" | "musica" | "patrimonio" | "feria" | "teatro";
+  categoryLabel: string;
+  price: string;
+  image: string;
+  organizer: string;
+  featured?: boolean;
+  coordinates?: [number, number];
+}
+

@@ -56,7 +56,7 @@ interface AuthContextType {
   purgeStorage: () => void;
   login: (usernameOrEmail: string, password: string) => Promise<{ success: boolean; message: string }>;
   loginWithGoogle: () => Promise<{ success: boolean; message: string }>;
-  register: (data: { name: string; username: string; email: string; password: string; avatar?: string }) => Promise<{ success: boolean; message: string }>;
+  register: (data: { name: string; email: string; password: string; username?: string; avatar?: string; emailVerified?: boolean }) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
   elevateToAdmin: (securityKey: string) => Promise<{ success: boolean; message: string }>;
   adminCreateUser: (data: { name: string; username: string; email: string; password: string; role: Role; avatar?: string }) => Promise<{ success: boolean; message: string }>;
@@ -310,16 +310,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async ({
     name,
-    username,
     email,
     password,
+    username,
     avatar = "🎒",
+    emailVerified = true,
   }: {
     name: string;
-    username: string;
     email: string;
     password: string;
+    username?: string;
     avatar?: string;
+    emailVerified?: boolean;
   }) => {
     // ── Modo Firebase ─────────────────────────────────────────────────────────
     if (BACKEND === "firebase") {
@@ -327,12 +329,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: result.success, message: result.message };
     }
 
-    // ── Modo Supabase / local (comportamiento original) ───────────────────────
-    const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+    // ── Modo Supabase / local (comportamiento original con validación de correo) ──
     const cleanEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    if (!name.trim() || !cleanUsername || !password.trim()) {
+    if (!name.trim() || !cleanEmail || !password.trim()) {
       return { success: false, message: "Todos los campos obligatorios deben completarse." };
+    }
+
+    if (!emailRegex.test(cleanEmail)) {
+      return { success: false, message: "Por favor ingresa una dirección de correo electrónico válida." };
     }
 
     const policy = validatePasswordPolicy(password);
@@ -340,14 +346,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, message: policy.message };
     }
 
-    const usernameExists = users.some((u) => u.username.toLowerCase() === cleanUsername);
-    if (usernameExists) {
-      return { success: false, message: `El nombre de usuario @${cleanUsername} ya está en uso.` };
-    }
-
     const emailExists = users.some((u) => u.email.toLowerCase() === cleanEmail);
     if (emailExists) {
-      return { success: false, message: `El correo ${cleanEmail} ya se encuentra registrado.` };
+      return { success: false, message: `El correo ${cleanEmail} ya se encuentra registrado. Inicia sesión.` };
+    }
+
+    // Generar nombre de usuario automáticamente a partir del correo si no se proporciona
+    const baseUsername = (username || cleanEmail.split("@")[0])
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, "") || "viajero";
+    let cleanUsername = baseUsername;
+    let counter = 1;
+    while (users.some((u) => u.username.toLowerCase() === cleanUsername)) {
+      cleanUsername = `${baseUsername}_${counter++}`;
     }
 
     // Cifrar contraseña con SHA-256 + Salt
@@ -364,6 +376,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       avatar,
       createdAt: new Date().toISOString().split("T")[0],
       lastLogin: new Date().toISOString(),
+      emailVerified,
     };
 
     await saveUserToDatabase(newUser);
@@ -381,7 +394,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userEmail: cleanEmail,
       role: "normal",
       status: "OK",
-      details: `Nuevo usuario registrado con credenciales cifradas (@${cleanUsername})`,
+      details: `Nuevo usuario registrado por correo verificado: ${cleanEmail} (@${cleanUsername})`,
     });
 
     return { success: true, message: `¡Registro exitoso! Bienvenido a Cochabamba, ${newUser.name}.` };

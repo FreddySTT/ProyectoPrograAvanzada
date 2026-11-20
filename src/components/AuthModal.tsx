@@ -1,11 +1,17 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { validatePasswordPolicy } from "../utils/security";
+import {
+  generateVerificationCode,
+  sendVerificationEmail,
+  verifyCode,
+  getActiveVerificationCode,
+} from "../utils/emailVerification";
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultTab?: "login" | "register" | "recover";
+  defaultTab?: "login" | "register" | "recover" | "verify";
   onNotify?: (msg: string) => void;
 }
 
@@ -18,7 +24,7 @@ export function AuthModal({
   onNotify,
 }: AuthModalProps) {
   const { login, loginWithGoogle, register, requestPasswordReset, isLockedOut, lockoutRemaining } = useAuth();
-  const [tab, setTab] = useState<"login" | "register" | "recover">(defaultTab);
+  const [tab, setTab] = useState<"login" | "register" | "recover" | "verify">(defaultTab);
 
   // Login form state
   const [loginUser, setLoginUser] = useState("");
@@ -26,13 +32,24 @@ export function AuthModal({
   const [loginError, setLoginError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Register form state
+  // Register form state (Registro exclusivamente con correo electrónico)
   const [regName, setRegName] = useState("");
-  const [regUsername, setRegUsername] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regAvatar, setRegAvatar] = useState("🎒");
   const [regError, setRegError] = useState("");
+
+  // Verification state (Confirmación por código de 6 dígitos)
+  const [pendingRegData, setPendingRegData] = useState<{
+    name: string;
+    email: string;
+    password: string;
+    avatar: string;
+  } | null>(null);
+  const [verifyCodeInput, setVerifyCodeInput] = useState("");
+  const [verifyError, setVerifyError] = useState("");
+  const [verifySentNotice, setVerifySentNotice] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   // Recover form state
   const [recUser, setRecUser] = useState("");
@@ -45,10 +62,21 @@ export function AuthModal({
   const regPolicy = validatePasswordPolicy(regPassword);
   const recPolicy = validatePasswordPolicy(recNewPassword);
 
+  // Temporizador para reenvío de código
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
+
   useEffect(() => {
     setTab(defaultTab);
     setLoginError("");
     setRegError("");
+    setVerifyError("");
+    setVerifySentNotice("");
     setRecError("");
     setRecSuccess("");
   }, [defaultTab, isOpen]);
@@ -69,7 +97,7 @@ export function AuthModal({
     setLoginError("");
 
     if (!loginUser.trim() || !loginPass.trim()) {
-      setLoginError("Por favor ingresa usuario y contraseña.");
+      setLoginError("Por favor ingresa tu correo electrónico y contraseña.");
       return;
     }
 
@@ -111,8 +139,16 @@ export function AuthModal({
     e.preventDefault();
     setRegError("");
 
-    if (!regName.trim() || !regUsername.trim() || !regPassword.trim()) {
+    const cleanEmail = regEmail.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!regName.trim() || !cleanEmail || !regPassword.trim()) {
       setRegError("Completa todos los campos obligatorios.");
+      return;
+    }
+
+    if (!emailRegex.test(cleanEmail)) {
+      setRegError("Ingresa un correo electrónico válido (ej. tu@correo.com).");
       return;
     }
 
@@ -124,20 +160,79 @@ export function AuthModal({
 
     setLoading(true);
     try {
-      const res = await register({
-        name: regName,
-        username: regUsername,
-        email: regEmail,
+      const code = generateVerificationCode();
+      const sendResult = await sendVerificationEmail(cleanEmail, regName.trim(), code);
+
+      setPendingRegData({
+        name: regName.trim(),
+        email: cleanEmail,
         password: regPassword,
         avatar: regAvatar,
       });
+      setVerifyCodeInput("");
+      setVerifyError("");
+      setVerifySentNotice(sendResult.message);
+      setResendCooldown(60);
+      setTab("verify");
+    } catch {
+      setRegError("Error al iniciar verificación de correo. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVerifyError("");
+
+    if (!pendingRegData) {
+      setVerifyError("No hay datos de registro pendientes.");
+      return;
+    }
+
+    if (verifyCodeInput.trim().length !== 6) {
+      setVerifyError("Por favor ingresa el código completo de 6 dígitos.");
+      return;
+    }
+
+    const verification = verifyCode(pendingRegData.email, verifyCodeInput);
+    if (!verification.valid) {
+      setVerifyError(verification.message);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await register({
+        name: pendingRegData.name,
+        email: pendingRegData.email,
+        password: pendingRegData.password,
+        avatar: pendingRegData.avatar,
+        emailVerified: true,
+      });
 
       if (res.success) {
-        if (onNotify) onNotify(res.message);
+        if (onNotify) onNotify("¡Correo confirmado y cuenta activada con éxito!");
+        setPendingRegData(null);
+        setVerifyCodeInput("");
         onClose();
       } else {
-        setRegError(res.message);
+        setVerifyError(res.message);
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (!pendingRegData || resendCooldown > 0) return;
+    setLoading(true);
+    setVerifyError("");
+    try {
+      const code = generateVerificationCode();
+      const res = await sendVerificationEmail(pendingRegData.email, pendingRegData.name, code);
+      setVerifySentNotice(res.message);
+      setResendCooldown(60);
     } finally {
       setLoading(false);
     }
@@ -183,6 +278,10 @@ export function AuthModal({
     setLoginError("");
   };
 
+  const activeVerificationCode = pendingRegData
+    ? getActiveVerificationCode(pendingRegData.email)
+    : null;
+
   return (
     <div
       role="dialog"
@@ -204,13 +303,17 @@ export function AuthModal({
                 ? "Acceso a Riqsi Rutas"
                 : tab === "register"
                 ? "Crear Cuenta de Viajero"
+                : tab === "verify"
+                ? "Confirmar Correo Electrónico"
                 : "Recuperar Contraseña"}
             </h2>
             <p className="text-xs text-[#6D4C41] mt-0.5">
               {tab === "login"
-                ? "Inicia sesión para personalizar tus rutas en Cochabamba"
+                ? "Inicia sesión con tu correo para personalizar tus rutas en Cochabamba"
                 : tab === "register"
-                ? "Únete a la comunidad de viajeros y explora la Llajta"
+                ? "Regístrate con tu correo y explora la Llajta"
+                : tab === "verify"
+                ? "Ingresa el código enviado a tu buzón para activar tu cuenta"
                 : "Restablece el acceso de forma segura"}
             </p>
           </div>
@@ -224,41 +327,59 @@ export function AuthModal({
         </div>
 
         {/* Tab switcher */}
-        <div className="grid grid-cols-3 p-1.5 bg-[#F5E6D3]/40 border-b border-[#E8E3D8] text-xs font-subtitle font-bold text-center">
-          <button
-            type="button"
-            onClick={() => setTab("login")}
-            className={`py-2 rounded-xl transition ${
-              tab === "login"
-                ? "bg-white text-[#D81B60] shadow-sm font-extrabold"
-                : "text-[#6D4C41] hover:text-[#37474F]"
-            }`}
-          >
-            Ingresar
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("register")}
-            className={`py-2 rounded-xl transition ${
-              tab === "register"
-                ? "bg-white text-[#D81B60] shadow-sm font-extrabold"
-                : "text-[#6D4C41] hover:text-[#37474F]"
-            }`}
-          >
-            Registrarse
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("recover")}
-            className={`py-2 rounded-xl transition ${
-              tab === "recover"
-                ? "bg-white text-[#D81B60] shadow-sm font-extrabold"
-                : "text-[#6D4C41] hover:text-[#37474F]"
-            }`}
-          >
-            Recuperar
-          </button>
-        </div>
+        {tab === "verify" ? (
+          <div className="flex items-center justify-between px-4 py-2.5 bg-[#F5E6D3]/60 border-b border-[#E8E3D8] text-xs font-subtitle">
+            <span className="font-extrabold text-[#D81B60] flex items-center gap-1.5">
+              <span>✉️</span> Paso 2 de 2: Verificación de Código
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setTab("register");
+                setVerifyError("");
+              }}
+              className="text-[#6D4C41] hover:text-[#D81B60] font-bold underline"
+            >
+              ← Modificar correo
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 p-1.5 bg-[#F5E6D3]/40 border-b border-[#E8E3D8] text-xs font-subtitle font-bold text-center">
+            <button
+              type="button"
+              onClick={() => setTab("login")}
+              className={`py-2 rounded-xl transition ${
+                tab === "login"
+                  ? "bg-white text-[#D81B60] shadow-sm font-extrabold"
+                  : "text-[#6D4C41] hover:text-[#37474F]"
+              }`}
+            >
+              Ingresar
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("register")}
+              className={`py-2 rounded-xl transition ${
+                tab === "register"
+                  ? "bg-white text-[#D81B60] shadow-sm font-extrabold"
+                  : "text-[#6D4C41] hover:text-[#37474F]"
+              }`}
+            >
+              Registrarse
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("recover")}
+              className={`py-2 rounded-xl transition ${
+                tab === "recover"
+                  ? "bg-white text-[#D81B60] shadow-sm font-extrabold"
+                  : "text-[#6D4C41] hover:text-[#37474F]"
+              }`}
+            >
+              Recuperar
+            </button>
+          </div>
+        )}
 
         {/* Modal Body */}
         <div className="overflow-y-auto p-6 space-y-4">
@@ -287,13 +408,13 @@ export function AuthModal({
 
               <div>
                 <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1">
-                  Usuario o Correo
+                  Correo Electrónico
                 </label>
                 <input
                   type="text"
                   value={loginUser}
                   onChange={(e) => setLoginUser(e.target.value)}
-                  placeholder="ej. admin o carlos@gmail.com"
+                  placeholder="ej. carlos@gmail.com o admin@riqsirutas.bo"
                   disabled={isLockedOut || loading}
                   className="w-full rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-2.5 text-sm text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none disabled:opacity-50"
                   autoFocus
@@ -334,19 +455,19 @@ export function AuthModal({
                 <div className="grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
-                    onClick={() => fillDemoAccount("admin", "Admin@2026!")}
+                    onClick={() => fillDemoAccount("admin@riqsirutas.bo", "Admin@2026!")}
                     className="text-left px-2.5 py-1.5 rounded-lg bg-white hover:bg-[#F5E6D3] border border-[#E2D9CC] transition flex items-center justify-between text-[11px]"
                   >
                     <span className="font-bold text-[#37474F]">👑 Admin</span>
-                    <span className="text-[10px] text-gray-500 font-mono">Admin@2026!</span>
+                    <span className="text-[10px] text-gray-500 font-mono">admin@...</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => fillDemoAccount("turista", "Turista@2026!")}
+                    onClick={() => fillDemoAccount("carlos@gmail.com", "Turista@2026!")}
                     className="text-left px-2.5 py-1.5 rounded-lg bg-white hover:bg-[#F5E6D3] border border-[#E2D9CC] transition flex items-center justify-between text-[11px]"
                   >
                     <span className="font-bold text-[#37474F]">🎒 Turista</span>
-                    <span className="text-[10px] text-gray-500 font-mono">Turista@2026!</span>
+                    <span className="text-[10px] text-gray-500 font-mono">carlos@...</span>
                   </button>
                 </div>
               </div>
@@ -389,7 +510,7 @@ export function AuthModal({
             </form>
           )}
 
-          {/* TAB 2: REGISTER */}
+          {/* TAB 2: REGISTER (SOLAMENTE CON CORREO ELECTRÓNICO) */}
           {tab === "register" && (
             <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
               {regError && (
@@ -400,7 +521,7 @@ export function AuthModal({
 
               <div>
                 <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1">
-                  Nombre Completo
+                  Nombre Completo *
                 </label>
                 <input
                   type="text"
@@ -412,37 +533,24 @@ export function AuthModal({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1">
-                    Usuario
-                  </label>
-                  <input
-                    type="text"
-                    value={regUsername}
-                    onChange={(e) => setRegUsername(e.target.value)}
-                    placeholder="ej. mateo_viajes"
-                    className="w-full rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-2 text-sm text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1">
-                    Correo
-                  </label>
-                  <input
-                    type="email"
-                    value={regEmail}
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    placeholder="mateo@gmail.com"
-                    className="w-full rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-2 text-sm text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1 flex items-center justify-between">
+                  <span>Correo Electrónico *</span>
+                  <span className="text-[11px] text-[#D81B60] font-normal">Recibirás un código de 6 dígitos</span>
+                </label>
+                <input
+                  type="email"
+                  value={regEmail}
+                  onChange={(e) => setRegEmail(e.target.value)}
+                  placeholder="ej. mateo@gmail.com"
+                  className="w-full rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-2 text-sm text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none"
+                  required
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1">
-                  Contraseña Segura
+                  Contraseña Segura *
                 </label>
                 <input
                   type="password"
@@ -508,16 +616,23 @@ export function AuthModal({
                 </div>
               </div>
 
-              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-2.5 text-[11px] text-emerald-800">
-                🔒 <strong>Zero-Storage Garantizado:</strong> Nada se guarda en tu disco ni en localStorage. Contraseña encriptada con SHA-256 de alta entropía.
+              <div className="rounded-xl bg-blue-50 border border-blue-200 p-2.5 text-[11px] text-blue-900 leading-relaxed">
+                ✉️ <strong>Confirmación por Correo:</strong> Te enviaremos un código numérico a tu e-mail para validar tu dirección y activar tu cuenta.
               </div>
 
               <button
                 type="submit"
-                disabled={loading || !regPolicy.isValid}
-                className="w-full mt-2 rounded-full bg-[#D81B60] py-3 text-sm font-subtitle font-extrabold text-white shadow-lg shadow-[#D81B60]/30 hover:bg-[#b0144c] hover:scale-[1.01] active:scale-[0.99] transition disabled:opacity-50"
+                disabled={loading || !regPolicy.isValid || !regEmail.trim()}
+                className="w-full mt-2 rounded-full bg-[#D81B60] py-3 text-sm font-subtitle font-extrabold text-white shadow-lg shadow-[#D81B60]/30 hover:bg-[#b0144c] hover:scale-[1.01] active:scale-[0.99] transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {loading ? "Creando cuenta segura..." : "Registrar y Comenzar"}
+                {loading ? (
+                  <>
+                    <span className="inline-block animate-spin">⏳</span>
+                    <span>Generando código...</span>
+                  </>
+                ) : (
+                  <span>Continuar y Enviar Código ✉️</span>
+                )}
               </button>
 
               <div className="relative flex py-1 items-center">
@@ -543,6 +658,111 @@ export function AuthModal({
             </form>
           )}
 
+          {/* TAB 2.5: VERIFY EMAIL (CONFIRMACIÓN DE CORREO) */}
+          {tab === "verify" && pendingRegData && (
+            <form onSubmit={handleVerifySubmit} className="space-y-4">
+              {verifyError && (
+                <div className="rounded-xl bg-[#FFF1F2] border border-[#FECDD3] p-3 text-xs font-bold text-[#BE123C]">
+                  ⚠️ {verifyError}
+                </div>
+              )}
+
+              {verifySentNotice && (
+                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800">
+                  <div className="font-bold flex items-center gap-1.5 mb-1">
+                    <span>📨 Código enviado a:</span>
+                    <span className="font-mono bg-white px-2 py-0.5 rounded border border-emerald-200">
+                      {pendingRegData.email}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-700">
+                    Revisa tu bandeja principal o spam. El código es válido por 15 minutos.
+                  </p>
+                </div>
+              )}
+
+              {/* Sandbox / Código de verificación visible para pruebas y evaluación */}
+              {activeVerificationCode && (
+                <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-900">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-subtitle font-extrabold flex items-center gap-1.5">
+                      <span>🔑</span> Código de verificación:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setVerifyCodeInput(activeVerificationCode)}
+                      className="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-bold text-[11px] hover:bg-amber-700 transition shadow-sm"
+                    >
+                      Autocompletar
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-center py-2 bg-white rounded-xl border border-amber-200 tracking-[0.4em] font-mono text-2xl font-black text-[#D81B60]">
+                    {activeVerificationCode}
+                  </div>
+                  <p className="mt-2 text-[10px] text-amber-700 text-center">
+                    (Enviado al correo especificado y accesible aquí para pruebas inmediatas)
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1.5 text-center">
+                  Introduce el código de 6 dígitos
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={verifyCodeInput}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    setVerifyCodeInput(val);
+                  }}
+                  placeholder="• • • • • •"
+                  className="w-full text-center font-mono text-2xl tracking-[0.35em] font-bold rounded-2xl border-2 border-[#D81B60]/40 bg-[#FAF7F2] py-3 text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none transition"
+                  autoFocus
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || verifyCodeInput.trim().length !== 6}
+                className="w-full rounded-full bg-[#D81B60] py-3 text-sm font-subtitle font-extrabold text-white shadow-lg shadow-[#D81B60]/30 hover:bg-[#b0144c] hover:scale-[1.01] active:scale-[0.99] transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <span className="inline-block animate-spin">⏳</span>
+                    <span>Confirmando correo...</span>
+                  </>
+                ) : (
+                  <span>Confirmar y Activar Cuenta ✨</span>
+                )}
+              </button>
+
+              <div className="flex items-center justify-between pt-2 border-t border-[#E8E3D8] text-xs">
+                <button
+                  type="button"
+                  onClick={handleResendCode}
+                  disabled={resendCooldown > 0 || loading}
+                  className="text-[#D81B60] font-bold hover:underline disabled:opacity-50 disabled:no-underline"
+                >
+                  {resendCooldown > 0
+                    ? `Reenviar en ${resendCooldown}s`
+                    : "Reenviar código"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab("register");
+                    setVerifyError("");
+                  }}
+                  className="text-[#6D4C41] hover:underline"
+                >
+                  Cambiar correo / Volver
+                </button>
+              </div>
+            </form>
+          )}
+
           {/* TAB 3: RECOVER PASSWORD */}
           {tab === "recover" && (
             <form onSubmit={handleRecoverSubmit} className="space-y-3.5">
@@ -559,13 +779,13 @@ export function AuthModal({
 
               <div>
                 <label className="block text-xs font-subtitle font-bold text-[#37474F] mb-1">
-                  Usuario o Correo Registrado *
+                  Correo Electrónico Registrado *
                 </label>
                 <input
                   type="text"
                   value={recUser}
                   onChange={(e) => setRecUser(e.target.value)}
-                  placeholder="ej. admin o carlos@gmail.com"
+                  placeholder="ej. carlos@gmail.com o admin@riqsirutas.bo"
                   className="w-full rounded-xl border border-[#E2D9CC] bg-[#FAF7F2] px-3.5 py-2 text-sm text-[#37474F] focus:border-[#D81B60] focus:bg-white focus:outline-none"
                   required
                 />
